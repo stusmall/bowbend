@@ -24,6 +24,9 @@ class PortscanTarget:
             arg1 = _bytes_to_slice_ref_unit8_t(target.network_address.packed)
             arg2 = target.prefixlen
             result = lib.new_ip_v6_network(arg1, arg2)
+        elif isinstance(target, str):
+            arg1 = _bytes_to_slice_ref_unit8_t(target.encode("UTF-8"))
+            result = lib.new_hostname(arg1)
         else:
             raise ValueError("Not a valid type of target")
 

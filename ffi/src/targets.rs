@@ -3,8 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use ::safer_ffi::prelude::*;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use portscanner_core::target::PortscanTarget as InternalPortscanTarget;
-use safer_ffi::string::str_ref;
-use safer_ffi::{char_p::char_p_boxed, slice::slice_ref};
+use safer_ffi::{char_p::char_p_boxed, slice::slice_ref, string::str_ref};
 
 use crate::result::{FfiResult, StatusCodes};
 
@@ -54,7 +53,6 @@ pub fn new_ip_v4_address(input: slice_ref<u8>) -> FfiResult<PortscanTarget> {
 /// slice is anything besides 16 bytes then it will return an error result.
 #[ffi_export]
 fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<PortscanTarget> {
-    println!("{:?}", input.to_vec());
     if input.len() == 16 {
         FfiResult {
             status_code: StatusCodes::Ok,
@@ -112,15 +110,22 @@ fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<PortscanTa
 
 #[ffi_export]
 fn new_hostname(hostname: str_ref) -> FfiResult<PortscanTarget> {
-    // We are pretty liberal about what we are willing to attempt a DNS look up on.  So we aren't
-    // really going to do anytime of validation on hostnames
-    let contents = hostname.as_bytes().to_vec();
-    FfiResult {
-        status_code: StatusCodes::Ok,
-        contents: Some(repr_c::Box::new(PortscanTarget {
-            target_type: PortscanTargetType::Hostname,
-            contents,
-        })),
+    // We are pretty liberal about what we are willing to attempt a DNS look up on.
+    // So we aren't really going to do anytime of validation on hostnames
+    let bytes = hostname.as_bytes();
+    if std::str::from_utf8(bytes).is_ok() {
+        FfiResult {
+            status_code: StatusCodes::Ok,
+            contents: Some(repr_c::Box::new(PortscanTarget {
+                target_type: PortscanTargetType::Hostname,
+                contents: bytes.to_vec(),
+            })),
+        }
+    } else {
+        FfiResult {
+            status_code: StatusCodes::InvalidUTF8,
+            contents: None,
+        }
     }
 }
 
@@ -172,7 +177,11 @@ impl From<PortscanTarget> for InternalPortscanTarget {
                 InternalPortscanTarget::Network(IpNet::V6(Ipv6Net::new(address, prefix).unwrap()))
             }
             PortscanTargetType::Hostname => {
-                unimplemented!()
+                // This unwrap is safe due to the check in the constructor
+                let hostname_str = std::str::from_utf8(&ffi_target.contents)
+                    .unwrap()
+                    .to_owned();
+                InternalPortscanTarget::Hostname(hostname_str)
             }
         }
     }

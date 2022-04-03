@@ -19,4 +19,5 @@ pub struct FfiResult<T> {
 pub enum StatusCodes {
     Ok = 0,
     InvalidLength = -1,
+    InvalidUTF8 = -2,
 }

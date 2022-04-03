@@ -5,7 +5,7 @@ from .portscanner import ffi  # type: ignore
 
 def _bytes_to_slice_ref_unit8_t(byte_array: bytes) -> Any:
     slice_ref = ffi.new("slice_ref_uint8_t[]", 1)
-    slice_ref[0].ptr = ffi.new("uint8_t const *", len(byte_array))
+    slice_ref[0].ptr = ffi.new("uint8_t const []", len(byte_array))
     for index, byte in enumerate(byte_array):
         slice_ref[0].ptr[index] = byte
     slice_ref[0].len = len(byte_array)

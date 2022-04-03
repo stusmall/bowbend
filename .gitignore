@@ -5,4 +5,6 @@ __pycache__
 *.o
 *.so
 # This is only here due to a bug in maturin
-/sdks/python/portscanner/target
+/sdks/python/portscanner/targetA
+# This is here to ignore what's produced by maturin develop
+/sdks/python/portscanner/portscanner/
