@@ -1,0 +1,15 @@
+[workspace]
+
+members = [
+    "ffi",
+    "portscanner_core",
+    "xtask"
+]
+
+# Maturin doesn't play well with workspaces
+exclude = ["sdks/python"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

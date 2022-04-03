@@ -1,0 +1,16 @@
+[package]
+name = "ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ipnet = "2.3"
+portscanner_core = { path = "../portscanner_core" }
+safer-ffi = { version = "0.0.7", features = ["proc_macros"] }
+
+[features]
+c-headers = ["safer-ffi/headers"]
+sdk-test-stub = []

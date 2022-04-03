@@ -1,0 +1,8 @@
+/venv/
+/target/
+.idea/
+__pycache__
+*.o
+*.so
+# This is only here due to a bug in maturin
+/sdks/python/portscanner/target
