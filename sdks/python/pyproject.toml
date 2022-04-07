@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "portscanner"
 requires-python = ">=3.8"
-dependencies = ["cffi"]
+dependencies = ["cffi", "janus"]
 
 [tool.maturin]
 bindings = "cffi"

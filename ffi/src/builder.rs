@@ -5,7 +5,7 @@ use crate::targets::PortscanTarget;
 
 #[derive_ReprC]
 #[ReprC::opaque]
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PortscanBuilder {
     pub(crate) targets: Vec<PortscanTarget>,
     pub(crate) ports: Vec<u16>,

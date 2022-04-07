@@ -8,7 +8,9 @@ mod result;
 mod targets;
 
 use ::safer_ffi::prelude::*;
+use futures::StreamExt;
 use portscanner_core::entry_point;
+use tokio::runtime::Runtime;
 
 use crate::builder::PortscanBuilder;
 
@@ -16,21 +18,30 @@ use crate::builder::PortscanBuilder;
 /// is available so that instead of kicking off a scan we dump configs to disk
 /// and write fake responses.  This is just here for unit testing SDKs
 #[ffi_export]
-pub fn start_scan(builder: &mut PortscanBuilder) {
-    let targets: Vec<portscanner_core::target::PortscanTarget> = builder
-        .targets
-        .to_vec()
-        .into_iter()
-        .map(|x| x.into())
-        .collect();
-    #[cfg(feature = "sdk-test-stub ")]
-    {
-        println!("{:?}", targets);
+pub fn start_scan(builder: &PortscanBuilder, callback: unsafe extern "C" fn()) {
+    // TODO: We need some way to pass along a context of an arbitrary memory block for callback to
+    // operate on
+    let builder = builder.clone();
+    let rt = Runtime::new().unwrap();
+    unsafe {
+        callback();
     }
-    #[cfg(not(feature = "sdk-test-stub "))]
-    {
-        let _ = entry_point(targets, builder.ports.clone(), None);
-    }
+    rt.spawn(async move {
+        let targets: Vec<portscanner_core::target::PortscanTarget> = builder
+            .targets
+            .to_vec()
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+        let mut stream = entry_point(targets, builder.ports, None).await;
+        while let Some(report) = stream.next().await {
+            println!("Report: {:?}", report);
+            unsafe {
+                callback();
+            }
+        }
+        println!("After scan");
+    });
 }
 
 /// The following test function is necessary for the header generation.

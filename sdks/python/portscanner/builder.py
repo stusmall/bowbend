@@ -4,13 +4,13 @@ from .targets import PortscanTarget
 
 
 class PortscanBuilder:
-    __inner: Any
+    _inner: Any
 
     def __init__(self) -> None:
-        self.__inner = lib.new_portscan_builder()
+        self._inner = lib.new_portscan_builder()
 
     def add_target(self, target: PortscanTarget) -> None:
-        lib.add_target(self.__inner, target)
+        lib.add_target(self._inner, target)
 
     def set_port_list(self, ports: List[int]) -> None:
-        lib.set_port_list(self.__inner, ports)
+        lib.set_port_list(self._inner, ports)
