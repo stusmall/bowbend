@@ -50,16 +50,14 @@ impl<T, R: Rng, S: 'static + Stream<Item = T> + Send> Stream for ThrottledStream
         }
         match projection.stream.poll_next(cx) {
             Poll::Ready(x) => {
-                let sleep_duration = Duration::from_millis(
-                    projection.random.gen_range(projection.range.clone()),
-                );
+                let sleep_duration =
+                    Duration::from_millis(projection.random.gen_range(projection.range.clone()));
                 *projection.sleeping = true;
                 projection.sleep.reset(Instant::now() + sleep_duration);
                 Poll::Ready(x)
             }
             Poll::Pending => Poll::Pending,
         }
-
     }
 }
 

@@ -41,7 +41,7 @@ fn build_python(release: bool) {
     preprocessor_cmd.args(&[
         "-E",
         &project_root()
-            .join("target/portscanner_no_includes.h")
+            .join("target/bowbend_no_includes.h")
             .to_string_lossy(),
         "-o",
         &project_root()

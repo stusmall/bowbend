@@ -1,11 +1,11 @@
 from typing import Any, Union
 
 from ._utils import _bytes_to_slice_ref_unit8_t, _char_star_to_python_string
-from .portscanner import lib  # type: ignore
+from .bowbend import lib  # type: ignore
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 
 
-class PortscanTarget:
+class Target:
     __inner: Any
 
     def __init__(self, target: Union[IPv4Address, IPv6Address, IPv4Network,
@@ -36,5 +36,5 @@ class PortscanTarget:
             raise ValueError("Failed to build an target")
 
     def __str__(self) -> str:
-        c_str = lib.display_portscan_target(self.__inner)
+        c_str = lib.display_target(self.__inner)
         return _char_star_to_python_string(c_str)

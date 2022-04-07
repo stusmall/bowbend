@@ -22,7 +22,7 @@ fn lint_rust() {
 fn lint_python_sdk() {
     println!("Running flake8");
     let mut flake8_cmd = Command::new("flake8");
-    flake8_cmd.args(&["sdks/python/portscanner/"]);
+    flake8_cmd.args(&["sdks/python/bowbend/"]);
     check_command_print_stdout!(flake8_cmd, "flake8 failed: {}");
 
     println!("Running mypy");

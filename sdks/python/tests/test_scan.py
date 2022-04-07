@@ -1,5 +1,5 @@
-from portscanner import PortscanBuilder, start_scan
+from bowbend import Builder, start_scan
 
 def test_start_scan():
-    builder = PortscanBuilder()
+    builder = Builder()
     start_scan(builder)

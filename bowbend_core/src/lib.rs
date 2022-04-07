@@ -11,8 +11,8 @@ use futures::{stream, Stream};
 
 use crate::{
     icmp::icmp_sweep,
-    report::PortscanReport,
-    target::{targets_to_instance_stream, PortscanTarget},
+    report::Report,
+    target::{targets_to_instance_stream, Target},
     tcp::full_open::full_open_port_scan,
     utils::throttle_stream::throttle_stream,
 };
@@ -28,10 +28,10 @@ pub(crate) mod utils;
 /// of updates as events happens
 #[tracing::instrument]
 pub async fn entry_point(
-    targets: Vec<PortscanTarget>,
+    targets: Vec<Target>,
     port_list: Vec<u16>,
     throttle_range: Option<Range<u64>>,
-) -> impl Stream<Item = PortscanReport> {
+) -> impl Stream<Item = Report> {
     let (target_stream, failed) = targets_to_instance_stream(targets);
     let throttled_stream = if let Some(range) = throttle_range {
         throttle_stream(range, target_stream)

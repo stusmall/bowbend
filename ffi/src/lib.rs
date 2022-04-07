@@ -8,26 +8,26 @@ mod result;
 mod targets;
 
 use ::safer_ffi::prelude::*;
+use bowbend_core::entry_point;
 use futures::StreamExt;
-use portscanner_core::entry_point;
 use tokio::runtime::Runtime;
 
-use crate::builder::PortscanBuilder;
+use crate::builder::Builder;
 
 /// The entry point to kicking off an actual scan.  The `sdk-test-stub` feature
 /// is available so that instead of kicking off a scan we dump configs to disk
 /// and write fake responses.  This is just here for unit testing SDKs
 #[ffi_export]
-pub fn start_scan(builder: &PortscanBuilder, callback: unsafe extern "C" fn()) {
-    // TODO: We need some way to pass along a context of an arbitrary memory block for callback to
-    // operate on
+pub fn start_scan(builder: &Builder, callback: unsafe extern "C" fn()) {
+    // TODO: We need some way to pass along a context of an arbitrary memory block
+    // for callback to operate on
     let builder = builder.clone();
     let rt = Runtime::new().unwrap();
     unsafe {
         callback();
     }
     rt.spawn(async move {
-        let targets: Vec<portscanner_core::target::PortscanTarget> = builder
+        let targets: Vec<bowbend_core::target::Target> = builder
             .targets
             .to_vec()
             .into_iter()
@@ -50,8 +50,8 @@ pub fn start_scan(builder: &PortscanBuilder, callback: unsafe extern "C" fn()) {
 fn generate_headers() -> Result<(), Box<dyn std::error::Error>> {
     use std::io::Write;
     let root = std::path::Path::new(&env!("CARGO_MANIFEST_DIR"));
-    let full_header = root.join("../target/portscanner.h");
-    let python_cffi_header = root.join("../target/portscanner_no_includes.h");
+    let full_header = root.join("../target/bowbend.h");
+    let python_cffi_header = root.join("../target/bowbend_no_includes.h");
     ::safer_ffi::headers::builder()
         .to_file(full_header)?
         .generate()?;

@@ -4,31 +4,31 @@
 use crate::{
     err::PortscanErr,
     icmp::PingResult,
-    target::{PortscanTarget, PortscanTargetInstance},
+    target::{Target, TargetInstance},
 };
 
-/// A portscan will produce a stream of PortscanReports to notify the caller of
+/// A portscan will produce a stream of Reports to notify the caller of
 /// what happened. Right now only one is produced per target but in the future
 /// we may want to produce multiple.
 #[derive(Debug)]
-pub struct PortscanReport {
+pub struct Report {
     /// The original target as provided by the user
-    pub target: PortscanTarget,
+    pub target: Target,
     /// The instance the action was actually performed on.  This is left out
     /// when we aren't able to convert to an instance, for example a hostname
     /// that fails to resolve.
-    pub instance: Option<PortscanTargetInstance>,
+    pub instance: Option<TargetInstance>,
     /// Detailed contents of what happened in the portscan.  We will get a
-    /// [`PortscanReportContents`] on a successful pr a PortscanErr on a
+    /// [`ReportContents`] on a successful pr a PortscanErr on a
     /// failure.  The remove host being down doesn't count as a failure.
     /// An example of a failure is failing to even resolve the hostname to do an
     /// I/O error.
-    pub contents: Result<PortscanReportContents, PortscanErr>,
+    pub contents: Result<ReportContents, PortscanErr>,
 }
 
 /// The detailed report of the portscan if we got to it.
 #[derive(Debug)]
-pub struct PortscanReportContents {
+pub struct ReportContents {
     /// The results of pinging the host.  This will be none if we decided to
     /// skip ping.
     pub icmp: Option<PingResult>,

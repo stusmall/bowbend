@@ -12,13 +12,13 @@ use tokio::{
 
 use crate::{
     icmp::{PingResult, PingResultType},
-    report::{PortReport, PortStatus, PortscanReport, PortscanReportContents},
+    report::{PortReport, PortStatus, Report, ReportContents},
 };
 
 pub(crate) async fn full_open_port_scan(
     mut input_stream: impl Stream<Item = PingResult> + Unpin,
     port_list: Vec<u16>,
-) -> Vec<PortscanReport> {
+) -> Vec<Report> {
     let mut report_futures = vec![];
 
     while let Some(ping_result) = input_stream.next().await {
@@ -27,10 +27,10 @@ pub(crate) async fn full_open_port_scan(
                 report_futures.push(scan_host(ping_result, port_list.clone()).boxed());
             }
             PingResultType::Timeout => {
-                let future = ready(PortscanReport {
+                let future = ready(Report {
                     target: ping_result.destination.clone().into(),
                     instance: Some(ping_result.destination.clone()),
-                    contents: Ok(PortscanReportContents {
+                    contents: Ok(ReportContents {
                         icmp: Some(ping_result),
                         ports: None,
                     }),
@@ -43,7 +43,7 @@ pub(crate) async fn full_open_port_scan(
     join_all(report_futures).await
 }
 
-async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> PortscanReport {
+async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
     let mut connection_futures = vec![];
     let ip = ping_result.destination.get_ip();
     ports.shuffle(&mut thread_rng());
@@ -68,10 +68,10 @@ async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> PortscanRepo
             },
         })
         .collect();
-    PortscanReport {
+    Report {
         target: ping_result.destination.clone().into(),
         instance: Some(ping_result.destination.clone()),
-        contents: Ok(PortscanReportContents {
+        contents: Ok(ReportContents {
             icmp: Some(ping_result),
             ports: Some(ports),
         }),

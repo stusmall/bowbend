@@ -1,15 +1,15 @@
 from typing import Any, List
-from .portscanner import lib  # type: ignore
-from .targets import PortscanTarget
+from .bowbend import lib  # type: ignore
+from .targets import Target
 
 
-class PortscanBuilder:
+class Builder:
     _inner: Any
 
     def __init__(self) -> None:
-        self._inner = lib.new_portscan_builder()
+        self._inner = lib.new_builder()
 
-    def add_target(self, target: PortscanTarget) -> None:
+    def add_target(self, target: Target) -> None:
         lib.add_target(self._inner, target)
 
     def set_port_list(self, ports: List[int]) -> None:

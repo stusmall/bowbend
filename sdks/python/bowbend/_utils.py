@@ -1,6 +1,6 @@
 from typing import Any
 
-from .portscanner import ffi  # type: ignore
+from .bowbend import ffi  # type: ignore
 
 
 def _bytes_to_slice_ref_unit8_t(byte_array: bytes) -> Any:

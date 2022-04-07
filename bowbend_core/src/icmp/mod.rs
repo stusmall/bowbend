@@ -16,7 +16,7 @@ use crate::{
         icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
         icmp_writer::{send_ping, PingSentSummary},
     },
-    target::PortscanTargetInstance,
+    target::TargetInstance,
     utils::batch_stream::batch_stream,
 };
 
@@ -27,7 +27,7 @@ mod packet;
 /// The results of an send ICMP hello if sent.  A valid
 #[derive(Debug)]
 pub struct PingResult {
-    pub destination: PortscanTargetInstance,
+    pub destination: TargetInstance,
     pub ping_sent: Option<Instant>,
     pub result_type: PingResultType,
 }
@@ -49,7 +49,7 @@ pub struct IcmpSummary {
 }
 
 pub(crate) async fn icmp_sweep(
-    target_stream: impl Stream<Item = PortscanTargetInstance> + 'static + Send,
+    target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
 ) -> io::Result<impl Stream<Item = PingResult>> {
     let icmpv4_sender = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))?;
     let icmpv6_sender = Socket::new_raw(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))?;
@@ -87,7 +87,7 @@ pub(crate) async fn icmp_sweep(
 }
 
 fn await_results(
-    mut targets: HashMap<IpAddr, (PortscanTargetInstance, PingSentSummary)>,
+    mut targets: HashMap<IpAddr, (TargetInstance, PingSentSummary)>,
     mut icmp_listener: impl Stream<Item = io::Result<ReceivedIcmpPacket>> + Unpin,
 ) -> impl Stream<Item = PingResult> {
     stream! {
@@ -154,7 +154,7 @@ mod tests {
             await_results, icmp_listener::ReceivedIcmpPacket, icmp_writer::PingSentSummary,
             PingResult,
         },
-        target::PortscanTargetInstance,
+        target::TargetInstance,
     };
 
     fn build_received(
@@ -171,12 +171,12 @@ mod tests {
     fn build_targets(
         dest_least_significant_byte: u8,
         icmp_identity: u16,
-    ) -> (IpAddr, (PortscanTargetInstance, PingSentSummary)) {
+    ) -> (IpAddr, (TargetInstance, PingSentSummary)) {
         let ip = IpAddr::from([0, 0, 0, dest_least_significant_byte]);
         (
             ip,
             (
-                PortscanTargetInstance::IP(ip),
+                TargetInstance::IP(ip),
                 PingSentSummary {
                     icmp_identity,
                     time_sent: Instant::now(),
