@@ -10,7 +10,7 @@ class Builder:
         self._inner = lib.new_builder()
 
     def add_target(self, target: Target) -> None:
-        lib.add_target(self._inner, target)
+        lib.add_target(self._inner, target._inner)
 
     def set_port_list(self, ports: List[int]) -> None:
         lib.set_port_list(self._inner, ports)

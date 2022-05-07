@@ -1,11 +1,9 @@
 //! This module contains everything we need to describe the results of a
 //! portscan.
 
-use crate::{
-    err::PortscanErr,
-    icmp::PingResult,
-    target::{Target, TargetInstance},
-};
+use std::net::IpAddr;
+
+use crate::{err::PortscanErr, icmp::PingResult, target::Target};
 
 /// A portscan will produce a stream of Reports to notify the caller of
 /// what happened. Right now only one is produced per target but in the future
@@ -14,10 +12,10 @@ use crate::{
 pub struct Report {
     /// The original target as provided by the user
     pub target: Target,
-    /// The instance the action was actually performed on.  This is left out
+    /// The IP the action was actually performed on.  This is left out
     /// when we aren't able to convert to an instance, for example a hostname
     /// that fails to resolve.
-    pub instance: Option<TargetInstance>,
+    pub instance: Option<IpAddr>,
     /// Detailed contents of what happened in the portscan.  We will get a
     /// [`ReportContents`] on a successful pr a PortscanErr on a
     /// failure.  The remove host being down doesn't count as a failure.

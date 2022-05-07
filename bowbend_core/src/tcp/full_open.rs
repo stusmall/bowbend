@@ -9,12 +9,14 @@ use tokio::{
     net::TcpStream,
     time::{error::Elapsed, timeout},
 };
+use tracing::instrument;
 
 use crate::{
     icmp::{PingResult, PingResultType},
     report::{PortReport, PortStatus, Report, ReportContents},
 };
 
+#[instrument(level = "trace", skip(input_stream))]
 pub(crate) async fn full_open_port_scan(
     mut input_stream: impl Stream<Item = PingResult> + Unpin,
     port_list: Vec<u16>,
@@ -29,7 +31,7 @@ pub(crate) async fn full_open_port_scan(
             PingResultType::Timeout => {
                 let future = ready(Report {
                     target: ping_result.destination.clone().into(),
-                    instance: Some(ping_result.destination.clone()),
+                    instance: Some(ping_result.destination.get_ip()),
                     contents: Ok(ReportContents {
                         icmp: Some(ping_result),
                         ports: None,
@@ -43,6 +45,8 @@ pub(crate) async fn full_open_port_scan(
     join_all(report_futures).await
 }
 
+
+#[instrument(level = "trace")]
 async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
     let mut connection_futures = vec![];
     let ip = ping_result.destination.get_ip();
@@ -70,7 +74,7 @@ async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
         .collect();
     Report {
         target: ping_result.destination.clone().into(),
-        instance: Some(ping_result.destination.clone()),
+        instance: Some(ping_result.destination.get_ip()),
         contents: Ok(ReportContents {
             icmp: Some(ping_result),
             ports: Some(ports),

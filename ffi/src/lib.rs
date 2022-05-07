@@ -4,45 +4,12 @@
 
 #![warn(missing_docs)]
 mod builder;
+mod ip;
+mod report;
 mod result;
 mod targets;
+mod scan;
 
-use ::safer_ffi::prelude::*;
-use bowbend_core::entry_point;
-use futures::StreamExt;
-use tokio::runtime::Runtime;
-
-use crate::builder::Builder;
-
-/// The entry point to kicking off an actual scan.  The `sdk-test-stub` feature
-/// is available so that instead of kicking off a scan we dump configs to disk
-/// and write fake responses.  This is just here for unit testing SDKs
-#[ffi_export]
-pub fn start_scan(builder: &Builder, callback: unsafe extern "C" fn()) {
-    // TODO: We need some way to pass along a context of an arbitrary memory block
-    // for callback to operate on
-    let builder = builder.clone();
-    let rt = Runtime::new().unwrap();
-    unsafe {
-        callback();
-    }
-    rt.spawn(async move {
-        let targets: Vec<bowbend_core::target::Target> = builder
-            .targets
-            .to_vec()
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-        let mut stream = entry_point(targets, builder.ports, None).await;
-        while let Some(report) = stream.next().await {
-            println!("Report: {:?}", report);
-            unsafe {
-                callback();
-            }
-        }
-        println!("After scan");
-    });
-}
 
 /// The following test function is necessary for the header generation.
 #[::safer_ffi::cfg_headers]

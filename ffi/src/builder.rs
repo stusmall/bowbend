@@ -5,10 +5,23 @@ use crate::targets::Target;
 
 #[derive_ReprC]
 #[ReprC::opaque]
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Builder {
     pub(crate) targets: Vec<Target>,
     pub(crate) ports: Vec<u16>,
+    pub(crate) ping: bool,
+    pub(crate) tracing: bool
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self {
+            targets: vec![],
+            ports: vec![80],
+            ping: false,
+            tracing: true //TODO: disable this by default
+        }
+    }
 }
 
 #[ffi_export]

@@ -9,6 +9,7 @@ use std::{
 use futures::{stream, Stream};
 use ipnet::IpNet;
 use rand::{seq::SliceRandom, thread_rng};
+use tracing::instrument;
 
 use crate::{err::PortscanErr, report::Report};
 
@@ -112,6 +113,7 @@ impl TargetInstance {
     }
 }
 
+#[instrument(level = "trace")]
 pub(crate) fn targets_to_instance_stream(
     targets: Vec<Target>,
 ) -> (impl Stream<Item = TargetInstance>, Vec<Report>) {

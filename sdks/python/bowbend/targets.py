@@ -6,7 +6,7 @@ from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 
 
 class Target:
-    __inner: Any
+    _inner: Any
 
     def __init__(self, target: Union[IPv4Address, IPv6Address, IPv4Network,
                                      IPv6Network, str]) -> None:
@@ -31,10 +31,10 @@ class Target:
             raise ValueError("Not a valid type of target")
 
         if result.status_code == lib.STATUS_CODES_OK:
-            self.__inner = result.contents
+            self._inner = result.contents
         else:
             raise ValueError("Failed to build an target")
 
     def __str__(self) -> str:
-        c_str = lib.display_target(self.__inner)
+        c_str = lib.display_target(self._inner)
         return _char_star_to_python_string(c_str)

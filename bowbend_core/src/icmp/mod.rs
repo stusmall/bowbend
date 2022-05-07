@@ -48,6 +48,7 @@ pub struct IcmpSummary {
     pub time_received: Instant,
 }
 
+#[tracing::instrument(skip(target_stream))]
 pub(crate) async fn icmp_sweep(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
 ) -> io::Result<impl Stream<Item = PingResult>> {
@@ -86,6 +87,7 @@ pub(crate) async fn icmp_sweep(
     Ok(await_results(targets, merged_stream))
 }
 
+#[tracing::instrument(skip(targets, icmp_listener))]
 fn await_results(
     mut targets: HashMap<IpAddr, (TargetInstance, PingSentSummary)>,
     mut icmp_listener: impl Stream<Item = io::Result<ReceivedIcmpPacket>> + Unpin,
@@ -141,6 +143,19 @@ fn await_results(
             }
         }
     }
+}
+
+#[tracing::instrument(skip(target_stream))]
+pub(crate) async fn skip_icmp(
+    target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
+) -> io::Result<impl Stream<Item = PingResult>> {
+    Ok(target_stream.map(|target| {
+        PingResult{
+            destination: target,
+            ping_sent: None,
+            result_type: PingResultType::Skipped
+        }
+    }))
 }
 
 #[cfg(test)]

@@ -22,11 +22,66 @@ pub enum TargetType {
 }
 
 #[derive_ReprC]
-#[ReprC::opaque]
-#[derive(Clone, Debug)]
+#[repr(C)]
+#[derive(Debug)]
 pub struct Target {
     target_type: TargetType,
-    contents: Vec<u8>,
+    contents: safer_ffi::Vec<u8>,
+}
+
+impl Default for Target {
+    // TODO: DELETE THIS.  its usekess
+    fn default() -> Self {
+        Target{
+            target_type: TargetType::IPv4,
+            contents: safer_ffi::Vec::EMPTY
+        }
+    }
+}
+
+impl Clone for Target {
+    fn clone(&self) -> Self {
+        Target{
+            target_type: self.target_type.clone(),
+            // Awkward/lazy way to get around safer_ffi::Vec not implementing clone but okay
+            contents: safer_ffi::Vec::from(self.contents.to_vec())
+        }
+    }
+}
+
+impl From<InternalTarget> for Target {
+    fn from(to_convert: InternalTarget) -> Self {
+        match to_convert {
+            InternalTarget::IP(IpAddr::V4(ipv4)) => Target {
+                target_type: TargetType::IPv4,
+                contents: safer_ffi::Vec::from(ipv4.octets().to_vec()),
+            },
+            InternalTarget::IP(IpAddr::V6(ipv6)) => Target {
+                target_type: TargetType::IPv6,
+                contents: safer_ffi::Vec::from(ipv6.octets().to_vec()),
+            },
+            InternalTarget::Network(IpNet::V4(networkv4)) => {
+                let mut addr_vec = networkv4.addr().octets().to_vec();
+                addr_vec.push(networkv4.prefix_len());
+                Target {
+                    target_type: TargetType::IPv4Network,
+                    contents: safer_ffi::Vec::from(addr_vec),
+                }
+            }
+            InternalTarget::Network(IpNet::V6(networkv6)) => {
+                let mut addr_vec = networkv6.addr().octets().to_vec();
+                addr_vec.push(networkv6.prefix_len());
+                Target {
+                    target_type: TargetType::IPv6Network,
+                    contents: safer_ffi::Vec::from(addr_vec),
+                }
+            }
+            InternalTarget::Hostname(hostname) => Target {
+                target_type: TargetType::Hostname,
+                contents: safer_ffi::Vec::from(hostname.as_bytes().to_vec()),
+            },
+        }
+    }
 }
 
 /// Construct a new `Target` containing an IPv4 address.  If the input
@@ -38,7 +93,7 @@ pub fn new_ip_v4_address(input: slice_ref<u8>) -> FfiResult<Target> {
             status_code: StatusCodes::Ok,
             contents: Some(repr_c::Box::new(Target {
                 target_type: TargetType::IPv4,
-                contents: input.to_vec(),
+                contents: safer_ffi::Vec::from(input.to_vec()),
             })),
         }
     } else {
@@ -58,7 +113,7 @@ fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
             status_code: StatusCodes::Ok,
             contents: Some(repr_c::Box::new(Target {
                 target_type: TargetType::IPv6,
-                contents: input.to_vec(),
+                contents: safer_ffi::Vec::from(input.to_vec()),
             })),
         }
     } else {
@@ -72,7 +127,8 @@ fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
 #[ffi_export]
 fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 4 && prefix <= 32 {
-        let input = vec![address[0], address[1], address[2], address[3], prefix];
+        let input =
+            safer_ffi::Vec::from(vec![address[0], address[1], address[2], address[3], prefix]);
         FfiResult {
             status_code: StatusCodes::Ok,
             contents: Some(repr_c::Box::new(Target {
@@ -97,7 +153,7 @@ fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
             status_code: StatusCodes::Ok,
             contents: Some(repr_c::Box::new(Target {
                 target_type: TargetType::IPv6Network,
-                contents: buffer,
+                contents: safer_ffi::Vec::from(buffer),
             })),
         }
     } else {
@@ -118,7 +174,7 @@ fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
             status_code: StatusCodes::Ok,
             contents: Some(repr_c::Box::new(Target {
                 target_type: TargetType::Hostname,
-                contents: bytes.to_vec(),
+                contents: safer_ffi::Vec::from(bytes.to_vec()),
             })),
         }
     } else {
@@ -148,8 +204,8 @@ impl From<Target> for InternalTarget {
             ))),
             TargetType::IPv6 => {
                 let v: [u8; 16] = ffi_target
-                    .contents.
-                    try_into()
+                    .contents.to_vec()
+                    .try_into()
                     .unwrap_or_else(|v: Vec<u8>| panic!("We reached an invalid internal state by having an IPv6 address of only {} bytes after the length check", v.len()));
                 InternalTarget::IP(IpAddr::V6(Ipv6Addr::from(v)))
             }
@@ -166,10 +222,10 @@ impl From<Target> for InternalTarget {
                 InternalTarget::Network(IpNet::V4(network))
             }
             TargetType::IPv6Network => {
-                let mut contents = ffi_target.contents;
+                let mut contents = ffi_target.contents.to_vec();
                 let prefix = contents.pop().unwrap();
-                let v: [u8; 16] = contents.
-                    try_into()
+                let v: [u8; 16] = contents
+                    .try_into()
                     .unwrap_or_else(|v: Vec<u8>| panic!("We reached an invalid internal state by having an IPv6 network address of only {} bytes after the length check", v.len()));
                 let address = Ipv6Addr::from(v);
                 // The error state here is triggered by prefixes > 128.  We already check that
