@@ -32,19 +32,19 @@ pub struct Target {
 impl Default for Target {
     // TODO: DELETE THIS.  its usekess
     fn default() -> Self {
-        Target{
+        Target {
             target_type: TargetType::IPv4,
-            contents: safer_ffi::Vec::EMPTY
+            contents: safer_ffi::Vec::EMPTY,
         }
     }
 }
 
 impl Clone for Target {
     fn clone(&self) -> Self {
-        Target{
+        Target {
             target_type: self.target_type.clone(),
             // Awkward/lazy way to get around safer_ffi::Vec not implementing clone but okay
-            contents: safer_ffi::Vec::from(self.contents.to_vec())
+            contents: safer_ffi::Vec::from(self.contents.to_vec()),
         }
     }
 }

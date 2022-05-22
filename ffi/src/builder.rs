@@ -10,7 +10,7 @@ pub struct Builder {
     pub(crate) targets: Vec<Target>,
     pub(crate) ports: Vec<u16>,
     pub(crate) ping: bool,
-    pub(crate) tracing: bool
+    pub(crate) tracing: bool,
 }
 
 impl Default for Builder {
@@ -19,7 +19,7 @@ impl Default for Builder {
             targets: vec![],
             ports: vec![80],
             ping: false,
-            tracing: true //TODO: disable this by default
+            tracing: true, //TODO: disable this by default
         }
     }
 }

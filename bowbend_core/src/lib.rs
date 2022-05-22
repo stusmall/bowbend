@@ -8,11 +8,11 @@
 use std::ops::Range;
 
 use futures::{stream, Stream};
-use tracing::Level;
-use tracing::instrument;
+use tracing::{instrument, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
 use crate::{
+    err::PortscanErr,
     icmp::icmp_sweep,
     report::Report,
     target::{targets_to_instance_stream, Target},
@@ -34,8 +34,8 @@ pub async fn entry_point(
     targets: Vec<Target>,
     port_list: Vec<u16>,
     throttle_range: Option<Range<u64>>,
-    ping: bool
-) -> impl Stream<Item = Report> {
+    ping: bool,
+) -> Result<impl Stream<Item = Report>, PortscanErr> {
     let (target_stream, failed) = targets_to_instance_stream(targets);
     let throttled_stream = if let Some(range) = throttle_range {
         throttle_stream(range, target_stream)
@@ -43,23 +43,18 @@ pub async fn entry_point(
         throttle_stream(Range::default(), target_stream)
     };
 
+    let ping_result_stream = icmp_sweep(throttled_stream).await?;
+    tracing::trace!("We have ping results back");
+    let results = full_open_port_scan(Box::pin(ping_result_stream), port_list).await;
+    tracing::trace!("We finished a full open port scan");
 
-
-    if let Ok(ping_result_stream) = icmp_sweep(throttled_stream).await {
-        tracing::trace!("We have ping results back");
-        let results = full_open_port_scan(Box::pin(ping_result_stream), port_list).await;
-        tracing::trace!("We finished a full open port scan");
-
-        // TODO: This is just here to make the compiler happier
-        stream::iter(failed)
-    } else {
-        // TODO: This needs to be an actual report instead
-        tracing::error!("This failed and is just aborting.  We need to send something back");
-        panic!();
-    }
+    // TODO: This is just here to make the compiler happier
+    Ok(stream::iter(failed))
 }
 
-
+/// Set up the tracing module.  This dumps out detailed traces of the exact
+/// code path to stdout.  This is only useful for internal development and not
+/// to a consumer of the library.
 pub fn setup_tracing() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
@@ -67,5 +62,3 @@ pub fn setup_tracing() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }
-
-

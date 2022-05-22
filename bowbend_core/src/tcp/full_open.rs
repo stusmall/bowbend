@@ -45,7 +45,6 @@ pub(crate) async fn full_open_port_scan(
     join_all(report_futures).await
 }
 
-
 #[instrument(level = "trace")]
 async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
     let mut connection_futures = vec![];

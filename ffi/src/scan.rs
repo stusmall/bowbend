@@ -1,12 +1,15 @@
 use std::time::Duration;
+
 use ::safer_ffi::prelude::*;
 use bowbend_core::{entry_point, setup_tracing};
 use futures::StreamExt;
 use tokio::runtime::Runtime;
 
-use crate::builder::Builder;
-use crate::report::Report;
-use crate::result::{FfiResult, StatusCodes};
+use crate::{
+    builder::Builder,
+    report::Report,
+    result::{FfiResult, StatusCodes},
+};
 
 /// The entry point to kicking off an actual scan.  The `sdk-test-stub` feature
 /// is available so that instead of kicking off a scan we dump configs to disk
@@ -32,7 +35,9 @@ pub fn start_scan(builder: &Builder, callback: unsafe extern "C" fn(Report)) {
             .map(|x| x.into())
             .collect();
         println!("RUST: Created targets {:?}", targets);
-        let mut stream = entry_point(targets, builder.ports, None, builder.ping).await;
+        let mut stream = entry_point(targets, builder.ports, None, builder.ping)
+            .await
+            .unwrap(); //TODO: return this as an error
         println!("RUST: we have a stream");
         while let Some(internal_report) = stream.next().await {
             println!("Report: {:?}", internal_report);
@@ -43,10 +48,13 @@ pub fn start_scan(builder: &Builder, callback: unsafe extern "C" fn(Report)) {
         }
         println!("RUST: after scan");
         //TODO: remove
-        let r = Report{
+        let r = Report {
             target: Default::default(),
             instance: None,
-            contents: FfiResult { status_code: StatusCodes::Ok, contents: None }
+            contents: FfiResult {
+                status_code: StatusCodes::Ok,
+                contents: None,
+            },
         };
         unsafe {
             println!("RUST: callback");

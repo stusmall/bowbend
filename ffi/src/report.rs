@@ -13,7 +13,8 @@ use crate::{
     result::{FfiResult, StatusCodes},
     targets::Target,
 };
-//TODO: We need a way to mark a stream as finished.  It is implicit in the rust stream, but not with these reports
+//TODO: We need a way to mark a stream as finished.  It is implicit in the rust
+// stream, but not with these reports
 #[derive_ReprC]
 #[repr(C)]
 pub struct Report {
@@ -34,6 +35,9 @@ impl From<InternalReport> for Report {
                     status_code: StatusCodes::FailedToResolveHostname,
                     contents: None,
                 },
+                PortscanErr::NeedsRootPermission => {
+                    unimplemented!()
+                }
             },
         };
         Report {

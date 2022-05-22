@@ -21,4 +21,7 @@ pub enum StatusCodes {
     InvalidLength = -1,
     InvalidUTF8 = -2,
     FailedToResolveHostname = -3,
+    /// The most likely cause of this is trying to use a raw socket when not
+    /// root.  This is basically anything besides a full open scan
+    InsufficientPermission = -4,
 }

@@ -68,7 +68,6 @@ dependencies = [
  "byteorder",
  "futures",
  "ipnet",
- "log",
  "mio 0.7.14",
  "pin-project",
  "pnet",
