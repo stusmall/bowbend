@@ -55,8 +55,8 @@ pub(crate) async fn icmp_sweep(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
 ) -> Result<impl Stream<Item = PingResult>, PortscanErr> {
     #[instrument(level = "error")]
-    fn socket_open_error(e: io::Error) -> PortscanErr {
-        unimplemented!()
+    fn socket_open_error(_: io::Error) -> PortscanErr {
+        PortscanErr::InsufficientPermission
     }
 
     let icmpv4_sender = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))

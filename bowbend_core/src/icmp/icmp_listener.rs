@@ -87,7 +87,8 @@ fn parse_packet(
         }
     }
 }
-
+//TODO: replace pnet's implementation with my own.  It's already there just
+// need to drop it in and test it
 fn parse_icmp(source: SocketAddr, ip_payload: &[u8]) -> Option<ReceivedIcmpPacket> {
     let to_ret = IcmpPacket::new(ip_payload).map(|icmp_packet| {
         let identity = BigEndian::read_u16(icmp_packet.payload());

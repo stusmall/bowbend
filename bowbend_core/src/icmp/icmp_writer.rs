@@ -21,7 +21,6 @@ pub(crate) async fn send_ping(
     let async_fd = AsyncFd::new(socket.as_raw_fd())?;
     let mut buffer = [0; 12];
     let payload = vec![1, 2, 3, 4];
-    //TODO: Replace this with pnet's impl
     let request = EchoRequest {
         ident: icmp_identity,
         seq_cnt: sequence_count,

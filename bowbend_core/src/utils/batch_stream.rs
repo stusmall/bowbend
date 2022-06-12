@@ -7,8 +7,8 @@ use futures::Stream;
 use pin_project::pin_project;
 
 /// This accepts a stream of T and a batch size.  It will then create a new
-/// stream of Vec<T>.  As the original stream omits values this stream will
-/// batch them up and only omit a Vec<T> once it reaches `batch_size`
+/// stream of [`Vec<T>`].  As the original stream omits values this stream will
+/// batch them up and only omit a [`Vec<T>`] once it reaches `batch_size`
 pub(crate) fn batch_stream<T, S: 'static + Stream<Item = T> + Send>(
     batch_size: usize,
     stream: S,

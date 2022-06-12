@@ -35,7 +35,7 @@ impl From<InternalReport> for Report {
                     status_code: StatusCodes::FailedToResolveHostname,
                     contents: None,
                 },
-                PortscanErr::NeedsRootPermission => {
+                PortscanErr::InsufficientPermission => {
                     unimplemented!()
                 }
             },

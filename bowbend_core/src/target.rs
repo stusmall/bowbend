@@ -75,8 +75,8 @@ pub enum TargetInstance {
     /// The user requested to scan an individual IP.
     IP(IpAddr),
     /// An instance of a split up CIDR block.  When a user wants to scan a CIDR
-    /// block we will break it up into a series of
-    /// TargetInstance::Network instance for each IP in the block.
+    /// block we will break it up into a series of Network instances.  One
+    /// for each IP in the block.
     Network {
         /// The original block requested to be scanned
         network: IpNet,

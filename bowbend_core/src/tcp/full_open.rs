@@ -16,6 +16,8 @@ use crate::{
     report::{PortReport, PortStatus, Report, ReportContents},
 };
 
+
+// TODO: This should return a stream and not a collect a vec
 #[instrument(level = "trace", skip(input_stream))]
 pub(crate) async fn full_open_port_scan(
     mut input_stream: impl Stream<Item = PingResult> + Unpin,

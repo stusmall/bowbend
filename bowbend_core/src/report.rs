@@ -17,10 +17,10 @@ pub struct Report {
     /// that fails to resolve.
     pub instance: Option<IpAddr>,
     /// Detailed contents of what happened in the portscan.  We will get a
-    /// [`ReportContents`] on a successful pr a PortscanErr on a
-    /// failure.  The remove host being down doesn't count as a failure.
-    /// An example of a failure is failing to even resolve the hostname to do an
-    /// I/O error.
+    /// [`ReportContents`] on a successful run and a [`PortscanErr`] on a
+    /// failure.  The remote host being down doesn't count as a failure.
+    /// An example of a failure is failing to even resolve the hostname due to
+    /// an I/O error.
     pub contents: Result<ReportContents, PortscanErr>,
 }
 

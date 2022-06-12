@@ -4,7 +4,6 @@ from . import Builder
 from .bowbend import ffi, lib  # type: ignore
 
 
-# Something here is corrupting memory causing the first test after it to always fail
 async def start_scan(builder: Builder):
     def spawn_scan(builder: Builder, queue: janus.SyncQueue[int]):
         @ffi.callback("void(*)(Report_t)")
@@ -16,7 +15,9 @@ async def start_scan(builder: Builder):
 
     queue: janus.Queue[int] = janus.Queue()
     loop = asyncio.get_running_loop()
-    fut = loop.run_in_executor(None, spawn_scan, builder, queue.sync_q) #TODO: Do I want this or to use a thread?  what happens if I don't await the fut?
+    # TODO: Do I want this or to use a thread?  what happens if I don't
+    #  await the fut?
+    fut = loop.run_in_executor(None, spawn_scan, builder, queue.sync_q)
     print("Waiting on fut")
     await fut
     print("Waiting on report")
