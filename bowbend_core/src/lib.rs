@@ -13,8 +13,9 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
 use crate::{
     err::PortscanErr,
-    icmp::icmp_sweep,
+    icmp::{icmp_sweep, skip_icmp},
     report::Report,
+    stream::StreamExt,
     target::{targets_to_instance_stream, Target},
     tcp::full_open::full_open_port_scan,
     utils::throttle_stream::throttle_stream,
@@ -40,16 +41,22 @@ pub async fn entry_point(
     let throttled_stream = if let Some(range) = throttle_range {
         throttle_stream(range, target_stream)
     } else {
+        //TODO: IF this isn't set, we should have a simplier code path to fault.  Right
+        // now this dies for sampling an empty range
         throttle_stream(Range::default(), target_stream)
     };
-
-    let ping_result_stream = icmp_sweep(throttled_stream).await?;
+    let ping_result_stream = if ping {
+        icmp_sweep(throttled_stream).await?.boxed()
+    } else {
+        skip_icmp(throttled_stream).await?.boxed()
+    };
     tracing::trace!("We have ping results back");
     let results = full_open_port_scan(Box::pin(ping_result_stream), port_list).await;
     tracing::trace!("We finished a full open port scan");
 
+    Ok(results.boxed())
     // TODO: This is just here to make the compiler happier
-    Ok(stream::iter(failed))
+    //Ok(stream::iter(failed))
 }
 
 /// Set up the tracing module.  This dumps out detailed traces of the exact

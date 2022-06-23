@@ -1,6 +1,6 @@
 from typing import Any
 
-from .bowbend import ffi  # type: ignore
+from .bowbend import ffi  # type: ignore # noqa # pylint: disable=import-error
 
 
 def _bytes_to_slice_ref_unit8_t(byte_array: bytes) -> Any:

@@ -19,7 +19,7 @@ impl Default for Builder {
             targets: vec![],
             ports: vec![80],
             ping: false,
-            tracing: true, //TODO: disable this by default
+            tracing: false,
         }
     }
 }
@@ -37,4 +37,14 @@ pub fn add_target(builder: &mut Builder, target: &Target) {
 #[ffi_export]
 pub fn set_port_list(builder: &mut Builder, ports: slice_ref<u16>) {
     builder.ports = ports.to_vec();
+}
+
+#[ffi_export]
+pub fn set_ping(builder: &mut Builder, ping: bool) {
+    builder.ping = ping;
+}
+
+#[ffi_export]
+pub fn set_tracing(builder: &mut Builder, tracing: bool) {
+    builder.tracing = tracing;
 }

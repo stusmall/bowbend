@@ -1,15 +1,16 @@
-from typing import Any, Union
+from typing import Union
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
+from _cffi_backend import _CDataBase  # type: ignore
 
 from ._utils import _bytes_to_slice_ref_unit8_t, _char_star_to_python_string
-from .bowbend import lib  # type: ignore
-from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
+from .bowbend import lib  # type: ignore # noqa # pylint: disable=import-error
 
 
 class Target:
-    _inner: Any
+    _inner: _CDataBase
 
     def __init__(self, target: Union[IPv4Address, IPv6Address, IPv4Network,
-                                     IPv6Network, str]) -> None:
+                                     IPv6Network, str, _CDataBase]) -> None:
         if isinstance(target, IPv4Address):
             address = _bytes_to_slice_ref_unit8_t(target.packed)
             result = lib.new_ip_v4_address(address)
@@ -27,6 +28,9 @@ class Target:
         elif isinstance(target, str):
             arg1 = _bytes_to_slice_ref_unit8_t(target.encode("UTF-8"))
             result = lib.new_hostname(arg1)
+        elif isinstance(target, _CDataBase):
+            self._inner = target
+            return
         else:
             raise ValueError("Not a valid type of target")
 

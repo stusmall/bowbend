@@ -5,8 +5,8 @@ macro_rules! check_command {
         let output = $cmd.output().unwrap();
         if !output.status.success() {
             let stderr = std::str::from_utf8(&output.stderr).unwrap();
-            eprint!($msg, format!("\n\n{}", stderr));
-            eprint!("Try again with command: {:?}", $cmd);
+            eprintln!($msg, format!("\n\n{}", stderr));
+            eprintln!("Try again with command: {:?}", $cmd);
             std::process::exit(1);
         }
     };
@@ -17,8 +17,8 @@ macro_rules! check_command_print_stdout {
         let output = $cmd.output().unwrap();
         if !output.status.success() {
             let stderr = std::str::from_utf8(&output.stdout).unwrap();
-            eprint!($msg, format!("\n\n{}", stderr));
-            eprint!("Try again with command: {:?}", $cmd);
+            eprintln!($msg, format!("\n\n{}", stderr));
+            eprintln!("Try again with command: {:?}", $cmd);
             std::process::exit(1);
         }
     };

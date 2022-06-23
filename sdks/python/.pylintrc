@@ -1,0 +1,10 @@
+[MASTER]
+
+[MESSAGES CONTROL]
+disable=missing-function-docstring,
+    missing-class-docstring,  # remove this
+    missing-module-docstring,  # remove this
+    protected-access,
+    too-few-public-methods, #remove this
+    fixme, # remove this
+    no-name-in-module # remove this

@@ -29,21 +29,15 @@ pub enum StatusCodes {
     UnknownError = -5,
 }
 
-
 impl<T> From<PortscanErr> for FfiResult<T> {
     fn from(e: PortscanErr) -> Self {
         let status_code = match e {
-            PortscanErr::FailedToResolveHostname(_) => {
-                StatusCodes::FailedToResolveHostname
-            }
-            PortscanErr::InsufficientPermission => {
-                StatusCodes::InsufficientPermission
-            }
+            PortscanErr::FailedToResolveHostname(_) => StatusCodes::FailedToResolveHostname,
+            PortscanErr::InsufficientPermission => StatusCodes::InsufficientPermission,
         };
         FfiResult {
             status_code,
-            contents: None
+            contents: None,
         }
     }
 }
-

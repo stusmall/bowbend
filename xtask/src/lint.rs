@@ -25,6 +25,11 @@ fn lint_python_sdk() {
     flake8_cmd.args(&["sdks/python/bowbend/"]);
     check_command_print_stdout!(flake8_cmd, "flake8 failed: {}");
 
+    println!("Running pylint");
+    let mut pylint_cmd = Command::new("pylint");
+    pylint_cmd.args(&["--rcfile", "sdks/python/.pylintrc", "sdks/python/bowbend/"]);
+    check_command_print_stdout!(pylint_cmd, "pylint failed: {}");
+
     println!("Running mypy");
     let mut flake8_cmd = Command::new("mypy");
     flake8_cmd.args(&["sdks/python/"]);

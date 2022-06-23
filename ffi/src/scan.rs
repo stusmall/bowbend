@@ -42,7 +42,7 @@ pub fn start_scan(
             .map(|x| x.into())
             .collect();
         println!("RUST: Created targets {:?}", targets);
-        let mut stream = match entry_point(targets, builder.ports, None, builder.ping).await {
+        let mut stream = match entry_point(targets, builder.ports, Some(0..1), builder.ping).await {
             Ok(stream) => stream,
             Err(e) => {
                 unsafe {

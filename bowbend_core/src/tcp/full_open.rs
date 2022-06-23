@@ -1,9 +1,7 @@
 use std::{io, net::SocketAddr, time::Duration};
 
-use futures::{
-    future::{join_all, ready},
-    FutureExt, Stream, StreamExt,
-};
+use async_stream::stream;
+use futures::{future::join_all, FutureExt, Stream, StreamExt};
 use rand::{seq::SliceRandom, thread_rng};
 use tokio::{
     net::TcpStream,
@@ -16,35 +14,31 @@ use crate::{
     report::{PortReport, PortStatus, Report, ReportContents},
 };
 
-
-// TODO: This should return a stream and not a collect a vec
 #[instrument(level = "trace", skip(input_stream))]
 pub(crate) async fn full_open_port_scan(
     mut input_stream: impl Stream<Item = PingResult> + Unpin,
     port_list: Vec<u16>,
-) -> Vec<Report> {
-    let mut report_futures = vec![];
-
-    while let Some(ping_result) = input_stream.next().await {
-        match ping_result.result_type {
-            PingResultType::Reply(_) | PingResultType::Skipped => {
-                report_futures.push(scan_host(ping_result, port_list.clone()).boxed());
-            }
-            PingResultType::Timeout => {
-                let future = ready(Report {
-                    target: ping_result.destination.clone().into(),
-                    instance: Some(ping_result.destination.get_ip()),
-                    contents: Ok(ReportContents {
-                        icmp: Some(ping_result),
-                        ports: None,
-                    }),
-                });
-                report_futures.push(future.boxed());
+) -> impl Stream<Item = Report> {
+    stream! {
+        while let Some(ping_result) = input_stream.next().await {
+            match ping_result.result_type {
+                PingResultType::Reply(_) | PingResultType::Skipped => {
+                    let result = scan_host(ping_result, port_list.clone()).await;
+                    yield result;
+                }
+                PingResultType::Timeout => {
+                    yield Report {
+                        target: ping_result.destination.clone().into(),
+                        instance: Some(ping_result.destination.get_ip()),
+                        contents: Ok(ReportContents {
+                            icmp: Some(ping_result),
+                            ports: None,
+                        }),
+                    };
+                }
             }
         }
     }
-
-    join_all(report_futures).await
 }
 
 #[instrument(level = "trace")]

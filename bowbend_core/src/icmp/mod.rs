@@ -159,7 +159,7 @@ fn await_results(
 #[instrument(skip(target_stream))]
 pub(crate) async fn skip_icmp(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
-) -> io::Result<impl Stream<Item = PingResult>> {
+) -> Result<impl Stream<Item = PingResult>, PortscanErr> {
     Ok(target_stream.map(|target| PingResult {
         destination: target,
         ping_sent: None,
