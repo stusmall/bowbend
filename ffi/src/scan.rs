@@ -11,6 +11,14 @@ use crate::{
     result::{FfiResult, StatusCodes},
 };
 
+#[derive_ReprC]
+#[repr(C)]
+#[derive(Debug)]
+pub struct StreamItem<T> {
+    pub item: Option<repr_c::Box<T>>
+}
+
+
 /// The entry point to kicking off an actual scan.  The `sdk-test-stub` feature
 /// is available so that instead of kicking off a scan we dump configs to disk
 /// and write fake responses.  This is just here for unit testing SDKs

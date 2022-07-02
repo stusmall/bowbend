@@ -1,14 +1,18 @@
 from ipaddress import ip_address
 
-from bowbend import Builder, start_scan, Target
+from bowbend import Builder, Scan, Target
 import pytest
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(3)
 @pytest.mark.asyncio
 async def test_start_scan():
+
     ipv4_target = Target(ip_address("127.0.0.1"))
     builder = Builder()
+    builder.set_ping(False)
     builder.add_target(ipv4_target)
     builder.set_tracing(True)
-    await start_scan(builder)
+    scan = Scan(builder)
+    x = await scan.next()
+    print("PYTHON end of test: " + x)
