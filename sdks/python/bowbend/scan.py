@@ -7,29 +7,30 @@ from .bowbend import ffi, lib  # type: ignore # noqa # pylint: disable=import-er
 from .report import Report
 
 
-def _spawn_scan(builder: Builder, queue: SyncQueue[Report]):
+class ScanFinished:
+    def __init__(self):
+        print("Scan is finished")
+
+
+def _spawn_scan(builder: Builder, queue: Queue[Union[Error, ScanFinished, Report]]):
     @ffi.callback("void(*)(FfiResult_Report_t)")
     def callback(report_result) -> None:
         print(f"PYTHON: In callback {report_result}")
         # TODO: Properly check the result
         if report_result.status_code == 0:
             report = Report(report_result.contents)
-            print(f"PYTHON: we built a report {report}")
+            print(f"PYTHON: we built a report")
             queue.put(report)
         else:
             error = Error(report_result.status_code)
             print("We have an error")
             queue.put(error)
     lib.start_scan(builder._inner, callback)
-
-
-class ScanFinished:
-    def __init__(self):
-        print("Scan is finished")
+    print("Adding scan finished to queue")
+    queue.put(ScanFinished())
 
 
 class Scan:
-    # TODO: This should queue errors and reports
     _queue: Queue[Union[Error, ScanFinished, Report]]
     _thread: Thread
 

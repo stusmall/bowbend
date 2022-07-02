@@ -4,7 +4,7 @@ from bowbend import Builder, Scan, Target
 import pytest
 
 
-@pytest.mark.timeout(3)
+@pytest.mark.timeout(10)
 @pytest.mark.asyncio
 async def test_start_scan():
 
@@ -15,4 +15,9 @@ async def test_start_scan():
     builder.set_tracing(True)
     scan = Scan(builder)
     x = await scan.next()
-    print("PYTHON end of test: " + x)
+    print("PYTHON got result: " + str(x))
+    x = await scan.next()
+    print("PYTHON got result: " + str(x))
+
+    raise 1
+

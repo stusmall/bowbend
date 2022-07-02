@@ -11,14 +11,6 @@ use crate::{
     result::{FfiResult, StatusCodes},
 };
 
-#[derive_ReprC]
-#[repr(C)]
-#[derive(Debug)]
-pub struct StreamItem<T> {
-    pub item: Option<repr_c::Box<T>>
-}
-
-
 /// The entry point to kicking off an actual scan.  The `sdk-test-stub` feature
 /// is available so that instead of kicking off a scan we dump configs to disk
 /// and write fake responses.  This is just here for unit testing SDKs
@@ -72,24 +64,7 @@ pub fn start_scan(
                 callback(ret);
             }
         }
-        println!("RUST: after scan");
-        //TODO: remove
-        let report = Report {
-            target: Default::default(),
-            instance: None,
-            contents: FfiResult {
-                status_code: StatusCodes::Ok,
-                contents: None,
-            },
-        };
-        let r = FfiResult {
-            status_code: StatusCodes::Ok,
-            contents: None,
-        };
-        unsafe {
-            println!("RUST: callback");
-            callback(r);
-        }
+
         println!("RUST: end of async task");
     });
     std::thread::sleep(Duration::from_secs(5));
