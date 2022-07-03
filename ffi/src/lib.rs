@@ -8,7 +8,7 @@ mod ip;
 mod report;
 mod result;
 mod scan;
-mod targets;
+mod target;
 
 /// The following test function is necessary for the header generation.
 #[::safer_ffi::cfg_headers]

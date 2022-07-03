@@ -1,6 +1,6 @@
 from typing import Any, List
 from .bowbend import lib  # type: ignore # noqa # pylint: disable=import-error
-from .targets import Target
+from .target import Target
 
 
 class Builder:

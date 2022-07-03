@@ -1,7 +1,7 @@
 use ::safer_ffi::prelude::*;
 use safer_ffi::{boxed::Box as FfiBox, slice::slice_ref};
 
-use crate::targets::Target;
+use crate::target::Target;
 
 #[derive_ReprC]
 #[ReprC::opaque]

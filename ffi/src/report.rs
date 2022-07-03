@@ -11,7 +11,7 @@ use safer_ffi::boxed::Box;
 use crate::{
     ip::Ip,
     result::{FfiResult, StatusCodes},
-    targets::Target,
+    target::Target,
 };
 //TODO: We need a way to mark a stream as finished.  It is implicit in the rust
 // stream, but not with these reports

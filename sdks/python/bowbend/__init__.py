@@ -5,6 +5,6 @@ from .bowbend import ffi, lib  # type: ignore # noqa # pylint: disable=import-er
 from .builder import Builder
 from .error import Error
 from .scan import Scan
-from .targets import Target
+from .target import Target
 
 __all__ = ['Error', 'Builder', 'Scan', 'Target']
