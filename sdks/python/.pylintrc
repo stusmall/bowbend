@@ -1,4 +1,5 @@
 [MASTER]
+ignore=ffi.py
 
 [MESSAGES CONTROL]
 disable=missing-function-docstring,

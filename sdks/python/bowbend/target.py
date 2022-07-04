@@ -8,10 +8,12 @@ from .bowbend import lib  # type: ignore # noqa # pylint: disable=import-error
 
 class Target:
     """
-    This is a potential target for a port scan.  It can a hostname, an IP address or a network of IP address.
-    Initialize it with a string to have it treated as a hostname.  Use an IPv4Address or IPv6Address instance for
-    individual IP addresses.  Use IPv4Network or IPv6Network for networks.  Additionally, this can be initialized with
-    a cffi object but that is for internal use only.
+    This is a potential target for a port scan.  It can a hostname, an IP
+    address or a network of IP address.  Initialize it with a string to have
+    it treated as a hostname.  Use an IPv4Address or IPv6Address instance for
+    individual IP addresses.  Use IPv4Network or IPv6Network for networks.
+    Additionally, this can be initialized with a cffi object but that is for
+    internal use only.
     """
     _inner: _CDataBase
 

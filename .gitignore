@@ -7,4 +7,4 @@ __pycache__
 # This is only here due to a bug in maturin
 /sdks/python/portscanner/targetA
 # This is here to ignore what's produced by maturin develop
-/sdks/python/portscanner/portscanner/
+/sdks/python/bowbend/bowbend/

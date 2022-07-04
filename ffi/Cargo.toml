@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 ipnet = "2.3"
 futures = "0.3"
 bowbend_core = { path = "../bowbend_core" }
-safer-ffi = { version = "0.0.7", features = ["proc_macros"] }
+safer-ffi = { version = "0.0.10", features = ["proc_macros"] }
 tokio = { version="1.10", features=["full"] }
 tracing = { version = "0.1", features = ["release_max_level_off"] }
 

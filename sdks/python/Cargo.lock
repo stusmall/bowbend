@@ -593,9 +593,9 @@ dependencies = [
 
 [[package]]
 name = "safer-ffi"
-version = "0.0.7"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c52424d2271f2f5aae854241d76244d75194b3486c6714c8020cdb8384c6be22"
+checksum = "40c710243617290d86a49a30564d94d0b646eacf6d7b67035e20d6e8a21f1193"
 dependencies = [
  "libc",
  "mini_paste",
@@ -606,9 +606,9 @@ dependencies = [
 
 [[package]]
 name = "safer_ffi-proc_macro"
-version = "0.0.7"
+version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12d277e24f04228e8c56c5e4482d9dccd44a287746dbc57464d5f7aea2d2d07"
+checksum = "bc02dc034daa0944eb133b448f261ef7422ccae768e30f30ce5cdeb4ae4e506c"
 dependencies = [
  "proc-macro-hack",
  "proc-macro2",
