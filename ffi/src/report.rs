@@ -35,14 +35,16 @@ impl From<InternalReport> for Report {
                     status_code: StatusCodes::FailedToResolveHostname,
                     contents: None,
                 },
-                PortscanErr::InsufficientPermission => {
-                    unimplemented!()
+                PortscanErr::InsufficientPermission => FfiResult {
+                    status_code: StatusCodes::InsufficientPermission,
+                    contents: None,
                 }
             },
         };
+
         Report {
             target: to_convert.target.into(),
-            instance: None,
+            instance: to_convert.instance.map(|x| Box::new(x.into())),
             contents,
         }
     }
@@ -51,7 +53,9 @@ impl From<InternalReport> for Report {
 #[derive_ReprC]
 #[repr(C)]
 pub struct ReportContents {
-    //TODO: need to convert PingReport to use SystemTime instead of Instant to pass over FFI
+    //TODO: We need to add the ping result
+    // TODO: It would be nice if we could make this a hMap<PortNumber, PortStatus>.  Right now
+    // safer_ffi doesn't have an FFI friendly Map yet but I bet it will eventually
     ports: Option<safer_ffi::Vec<PortReport>>,
 }
 

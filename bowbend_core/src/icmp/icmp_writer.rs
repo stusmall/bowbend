@@ -1,4 +1,5 @@
-use std::{io, net::SocketAddr, os::unix::io::AsRawFd, time::Instant};
+use std::{io, net::SocketAddr, os::unix::io::AsRawFd};
+use std::time::SystemTime;
 
 use socket2::{SockAddr, Socket};
 use tokio::io::unix::AsyncFd;
@@ -8,7 +9,7 @@ use crate::icmp::packet::{EchoRequest, IcmpV4, IcmpV6};
 
 pub(crate) struct PingSentSummary {
     pub icmp_identity: u16,
-    pub time_sent: Instant,
+    pub time_sent: SystemTime,
 }
 
 #[instrument(level = "trace")]
@@ -33,7 +34,7 @@ pub(crate) async fn send_ping(
         SocketAddr::V4(_) => request.encode::<IcmpV4>(&mut buffer)?,
         SocketAddr::V6(_) => request.encode::<IcmpV6>(&mut buffer)?,
     }
-    let time_sent = Instant::now();
+    let time_sent = SystemTime::now();
     internal_write(async_fd, socket, destination, &buffer).await?;
     info!("Ping successfully sent");
     Ok(PingSentSummary {

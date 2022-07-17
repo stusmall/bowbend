@@ -1,21 +1,91 @@
-from typing import Union
+from enum import Enum
+from typing import Union, Optional, Dict
 from ipaddress import IPv4Address, IPv6Address
 
 from _cffi_backend import _CDataBase  # type: ignore
 
-from ._utils import _vec_unit8_t_to_bytes
+from .error import Error
 from .bowbend import ffi  # type: ignore # noqa # pylint: disable=import-error
 from .target import Target
 
 
-class Report:
-    target: Target
-    instance: Union[IPv4Address, IPv6Address]
 
-    def __init__(self, internal: _CDataBase) -> None:
-        self.target = Target(ffi.addressof(internal.target))
-        print("Building instance...")
-        print(f"Type of instance {_vec_unit8_t_to_bytes(internal.instance.ip)}")
+class PortStatus(Enum):
+    Open = 0
+    Closed = 1
 
     def __str__(self):
-        return "idk"
+        match self:
+            case PortStatus.Open:
+                return "open"
+            case PortStatus.Closed:
+                return "closed"
+            case _:
+                raise NotImplementedError
+
+
+class PortReport:
+    port: int
+    status: PortStatus
+
+    def __init__(self, internal):
+        assert ffi.typeof(internal) is ffi.typeof("struct PortReport")
+        self.port = internal.port
+        self.status = PortStatus(internal.status)
+
+    def __str__(self):
+        return f"Port {self.port} is {self.status}"
+
+
+class ReportContents:
+    ports: Dict[int, PortReport]
+
+    def __init__(self, internal: _CDataBase):
+        assert ffi.typeof(internal) is ffi.typeof("ReportContents_t*")
+        print(f"The count of ports is {internal.ports.len}")
+        self.ports = dict()
+        for i in range(internal.ports.len):
+            # We are going to flatten this out a bit.  We don't have a great way to
+            # pass a Dict over the FFI layer, so we are just passing over a vec of reports
+            # and leaving it up to each SDK to turn it into a dictionary
+            port = internal.ports.ptr[i].port
+            report = PortReport(internal.ports.ptr[i])
+            self.ports[port] = report
+
+    def __str__(self):
+        s = ""
+        for index in self.ports:
+            s = s + "\n" + str(self.ports[index])
+        return s
+
+
+class Report:
+    target: Target
+    #  TODO: Add ping result here
+    instance: Optional[Union[IPv4Address, IPv6Address]]
+
+    contents: Union[ReportContents, Error]
+
+    def __init__(self, internal: _CDataBase) -> None:
+        assert ffi.typeof(internal) is ffi.typeof("Report_t*")
+        self.target = Target(ffi.addressof(internal.target))
+        if internal.instance.ip:
+            internal_ip = internal.instance.ip
+
+            ip_bytes = bytes(ffi.buffer(internal_ip.ptr, internal_ip.len))
+            if len(ip_bytes) == 4:
+                self.instance = IPv4Address(ip_bytes)
+            elif len(ip_bytes) == 16:
+                self.instance = IPv6Address(ip_bytes)
+            else:
+                raise Exception("Internal failure.  An IP was returned with an invalid number of bytes")
+        else:
+            self.instance = None
+
+        if internal.contents.status_code == 0:
+            self.contents = ReportContents(internal.contents.contents)
+        else:
+            self.contents = Error(internal.contents.status_code)
+
+    def __str__(self):
+        return f"Scanned {self.instance} as part of {self.target}.  The results are: " + str(self.contents)

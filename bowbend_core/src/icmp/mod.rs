@@ -4,6 +4,7 @@ use std::{
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
 };
+use std::time::SystemTime;
 
 use async_stream::stream;
 use futures::{select, stream::select as combine, FutureExt, Stream, StreamExt};
@@ -30,7 +31,7 @@ mod packet;
 #[derive(Debug)]
 pub struct PingResult {
     pub destination: TargetInstance,
-    pub ping_sent: Option<Instant>,
+    pub ping_sent: Option<SystemTime>,
     pub result_type: PingResultType,
 }
 
@@ -170,6 +171,7 @@ pub(crate) async fn skip_icmp(
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, io, net::IpAddr, time::Instant};
+    use std::time::SystemTime;
 
     use futures::{stream, StreamExt};
 
@@ -203,7 +205,7 @@ mod tests {
                 TargetInstance::IP(ip),
                 PingSentSummary {
                     icmp_identity,
-                    time_sent: Instant::now(),
+                    time_sent: SystemTime::now(),
                 },
             ),
         )
