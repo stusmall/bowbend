@@ -1,5 +1,5 @@
 from typing import Any, List
-from .bowbend import lib  # type: ignore # noqa # pylint: disable=import-error
+from .bowbend import ffi, lib  # type: ignore # noqa # pylint: disable=import-error
 from .target import Target
 
 
@@ -13,7 +13,13 @@ class Builder:
         lib.add_target(self._inner, target._inner)
 
     def set_port_list(self, ports: List[int]) -> None:
-        lib.set_port_list(self._inner, ports)
+        slice_ref = ffi.new("slice_ref_uint16_t[]", 1)
+
+        slice_ref[0].ptr = ffi.new("uint16_t const []", len(ports))
+        for index, port in enumerate(ports):
+            slice_ref[0].ptr[index] = port
+        slice_ref[0].len = len(ports)
+        lib.set_port_list(self._inner, slice_ref[0])
 
     def set_ping(self, ping: bool) -> None:
         lib.set_ping(self._inner, ping)
