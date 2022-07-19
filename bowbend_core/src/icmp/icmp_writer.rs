@@ -1,5 +1,4 @@
-use std::{io, net::SocketAddr, os::unix::io::AsRawFd};
-use std::time::SystemTime;
+use std::{io, net::SocketAddr, os::unix::io::AsRawFd, time::SystemTime};
 
 use socket2::{SockAddr, Socket};
 use tokio::io::unix::AsyncFd;

@@ -9,16 +9,15 @@ from .bowbend import ffi  # type: ignore # noqa # pylint: disable=import-error
 from .target import Target
 
 
-
 class PortStatus(Enum):
-    Open = 0
-    Closed = 1
+    OPEN = 0
+    CLOSED = 1
 
-    def __str__(self):
+    def __str__(self) -> str:
         match self:
-            case PortStatus.Open:
+            case PortStatus.OPEN:
                 return "open"
-            case PortStatus.Closed:
+            case PortStatus.CLOSED:
                 return "closed"
             case _:
                 raise NotImplementedError
@@ -43,25 +42,25 @@ class ReportContents:
     def __init__(self, internal: _CDataBase):
         assert ffi.typeof(internal) is ffi.typeof("ReportContents_t*")
         print(f"The count of ports is {internal.ports.len}")
-        self.ports = dict()
+        self.ports = {}
         for i in range(internal.ports.len):
-            # We are going to flatten this out a bit.  We don't have a great way to
-            # pass a Dict over the FFI layer, so we are just passing over a vec of reports
-            # and leaving it up to each SDK to turn it into a dictionary
+            # We are going to flatten this out a bit.  We don't have a great
+            # way to pass a Dict over the FFI layer, so we are just passing
+            # over a vec of reports and leaving it up to each SDK to turn it
+            # into a dictionary
             port = internal.ports.ptr[i].port
             report = PortReport(internal.ports.ptr[i])
             self.ports[port] = report
 
     def __str__(self):
-        s = ""
-        for index in self.ports:
-            s = s + "\n" + str(self.ports[index])
-        return s
+        to_ret = ""
+        for port in self.ports.items():
+            to_ret = to_ret + "\n" + str(port[1])
+        return to_ret
 
 
 class Report:
     target: Target
-    #  TODO: Add ping result here
     instance: Optional[Union[IPv4Address, IPv6Address]]
 
     contents: Union[ReportContents, Error]
@@ -78,7 +77,8 @@ class Report:
             elif len(ip_bytes) == 16:
                 self.instance = IPv6Address(ip_bytes)
             else:
-                raise Exception("Internal failure.  An IP was returned with an invalid number of bytes")
+                raise Exception("Internal failure. An IP was returned with an "
+                                "invalid number of bytes")
         else:
             self.instance = None
 
@@ -88,4 +88,5 @@ class Report:
             self.contents = Error(internal.contents.status_code)
 
     def __str__(self):
-        return f"Scanned {self.instance} as part of {self.target}.  The results are: " + str(self.contents)
+        return f"Scanned {self.instance} as part of {self.target}.  The " \
+               f"results are: " + str(self.contents)

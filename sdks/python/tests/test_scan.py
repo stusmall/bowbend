@@ -20,4 +20,4 @@ async def test_start_scan():
     scan = Scan(builder)
     result = await scan.next()
     assert type(await scan.next()) is ScanFinished
-    assert result.contents.ports.get(80).status == PortStatus.Closed
+    assert result.contents.ports.get(80).status == PortStatus.CLOSED

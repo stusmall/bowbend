@@ -38,7 +38,7 @@ impl From<InternalReport> for Report {
                 PortscanErr::InsufficientPermission => FfiResult {
                     status_code: StatusCodes::InsufficientPermission,
                     contents: None,
-                }
+                },
             },
         };
 

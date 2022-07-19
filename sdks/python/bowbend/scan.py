@@ -19,15 +19,14 @@ def _spawn_scan(builder: Builder,
         print(f"PYTHON: In callback {report_result}")
         if report_result.status_code == 0:
             report = Report(report_result.contents)
-            print("PYTHON: we built a report")
-            queue.sync_q.put(report)
+            queue.put(report)
         else:
             error = Error(report_result.status_code)
             print("We have an error")
-            queue.sync_q.put(error)
+            queue.put(error)
     lib.start_scan(builder._inner, callback)
     print("Adding scan finished to queue")
-    queue.sync_q.put(ScanFinished())
+    queue.put(ScanFinished())
 
 
 class Scan:
@@ -38,7 +37,7 @@ class Scan:
         self._queue = Queue()
         print("Starting thread")
         self._thread = Thread(target=_spawn_scan,
-                              args=(builder, self._queue,))
+                              args=(builder, self._queue.sync_q,))
         self._thread.start()
 
     async def next(self) -> Union[Error, ScanFinished, Report]:

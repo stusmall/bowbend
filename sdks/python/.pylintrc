@@ -7,4 +7,5 @@ disable=missing-function-docstring,
     missing-module-docstring,  # remove this
     protected-access,
     too-few-public-methods, #remove this
-    no-name-in-module # remove this
+    no-name-in-module, # remove this
+    invalid-str-returned # remove this

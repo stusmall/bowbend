@@ -2,9 +2,8 @@ use std::{
     collections::HashMap,
     io,
     net::{IpAddr, SocketAddr},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
-use std::time::SystemTime;
 
 use async_stream::stream;
 use futures::{select, stream::select as combine, FutureExt, Stream, StreamExt};
@@ -170,8 +169,12 @@ pub(crate) async fn skip_icmp(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io, net::IpAddr, time::Instant};
-    use std::time::SystemTime;
+    use std::{
+        collections::HashMap,
+        io,
+        net::IpAddr,
+        time::{Instant, SystemTime},
+    };
 
     use futures::{stream, StreamExt};
 
