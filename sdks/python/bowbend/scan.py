@@ -1,6 +1,6 @@
 from threading import Thread
 from typing import Union
-from janus import Queue
+from janus import AsyncQueue, SyncQueue, Queue
 from .builder import Builder
 from .error import Error
 from .bowbend import ffi, lib  # type: ignore # noqa # pylint: disable=import-error
@@ -13,7 +13,7 @@ class ScanFinished:
 
 
 def _spawn_scan(builder: Builder,
-                queue: Queue[Union[Error, ScanFinished, Report]]):
+                queue: SyncQueue[Union[Error, ScanFinished, Report]]):
     @ffi.callback("void(*)(FfiResult_Report_t)")
     def callback(report_result) -> None:
         print(f"PYTHON: In callback {report_result}")
@@ -30,15 +30,16 @@ def _spawn_scan(builder: Builder,
 
 
 class Scan:
-    _queue: Queue[Union[Error, ScanFinished, Report]]
+    _queue: AsyncQueue[Union[Error, ScanFinished, Report]]
     _thread: Thread
 
     def __init__(self, builder: Builder) -> None:
-        self._queue = Queue()
+        queue: Queue = Queue()
+        self._queue = queue.async_q
         print("Starting thread")
         self._thread = Thread(target=_spawn_scan,
-                              args=(builder, self._queue.sync_q,))
+                              args=(builder, queue.sync_q,))
         self._thread.start()
 
     async def next(self) -> Union[Error, ScanFinished, Report]:
-        return await self._queue.async_q.get()
+        return await self._queue.get()
