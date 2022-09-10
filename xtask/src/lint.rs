@@ -17,6 +17,11 @@ fn lint_rust() {
     let mut lint_cmd = Command::new("cargo");
     lint_cmd.args(&["clippy", "--color=always"]);
     check_command!(lint_cmd, "Failed to run cargo clippy: {}");
+
+    println!("Running cargo spell check");
+    let mut lint_cmd = Command::new("cargo");
+    lint_cmd.args(&["spellcheck", "-m", "1"]);
+    check_command_print_stdout!(lint_cmd, "Failed to run cargo spellcheck: {}");
 }
 
 fn lint_python_sdk() {
@@ -34,4 +39,5 @@ fn lint_python_sdk() {
     let mut flake8_cmd = Command::new("mypy");
     flake8_cmd.args(&["--config-file", "sdks/python/mypy.ini", "sdks/python/"]);
     check_command_print_stdout!(flake8_cmd, "mypy failed: {}");
+    //TODO: spell check python
 }

@@ -14,7 +14,6 @@ class Builder:
 
     def set_port_list(self, ports: List[int]) -> None:
         slice_ref = ffi.new("slice_ref_uint16_t[]", 1)
-
         slice_ref[0].ptr = ffi.new("uint16_t const []", len(ports))
         for index, port in enumerate(ports):
             slice_ref[0].ptr[index] = port

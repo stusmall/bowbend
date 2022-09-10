@@ -15,7 +15,7 @@ use crate::{err::PortscanErr, report::Report};
 
 /// This structure represents an argument into the port scanner itself.  This
 /// will be broken down into individual instances almost immediately.  The
-/// [`TargetInstance`] struct are what the internals will actually work
+/// [`TargetInstance`] structure is what the internals will actually work
 /// on
 #[derive(Clone, Eq, Debug, PartialEq, Hash)]
 pub enum Target {
@@ -85,8 +85,7 @@ pub enum TargetInstance {
     },
     /// An individual instance of a resolved host name.  Any hostname may
     /// resolve into multiple IP addresses when this happens we will have
-    /// one TargetInstance::Hostname for each IP returned by the DNS
-    /// query.
+    /// one `Hostname` for each IP returned by the DNS query.
     Hostname {
         /// The original hostname used in the DNS lookup
         hostname: String,

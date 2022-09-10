@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "bowbend"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "cffi==1.15.1",
     "janus==1.0.0"
@@ -17,7 +17,7 @@ test = [
     "pytest-timeout==2.1.0"
 ]
 lint = [
-    "flake8==4.0.1 ",
+    "flake8==4.0.1",
     "mypy==0.961",
     "pylint==2.14.4",
 ]

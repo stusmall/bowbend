@@ -1,6 +1,8 @@
 50
-API/S
+API
+APIs
 IP/S
+config/S
 DNS
 IPv4
 IPv6
@@ -10,8 +12,10 @@ RST
 TCP
 UDP
 portscan/S
+portscanner/S
 hostname/S
 stdout
 CIDR
 FFI
 enum/S
+struct/S

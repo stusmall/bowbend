@@ -2,8 +2,8 @@ use ::safer_ffi::prelude::*;
 use bowbend_core::err::PortscanErr;
 
 /// This is a poor imitation of the [std::result::Result] enum provided by rust.
-/// If status_code is 0, then it is an Ok and contents will be set.  If it is
-/// nonzero then the status code will be the error type.
+/// If `status_code` is 0, then it is an `Ok` and contents will be set.  If it
+/// is nonzero then the status code will be the error type.
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug)]
@@ -12,7 +12,7 @@ pub struct FfiResult<T> {
     pub contents: Option<repr_c::Box<T>>,
 }
 
-/// Only useful as part of `FfiResult`.  Tells us if it is Ok or Err and the
+/// Only useful as part of `FfiResult`.  Tells us if it is `Ok` or `Err` and the
 /// type of the error
 #[derive_ReprC]
 #[repr(i8)]
