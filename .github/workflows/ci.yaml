@@ -1,0 +1,134 @@
+on: [pull_request]
+
+name: Bowbend CI
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      # TODO: We should find a way to use the cffi called out in the pyproject.toml
+      - name: Install cffi and maturin
+        run: pip install cffi==1.15.1 maturin==0.12.9
+      - name: Build
+        run: cargo xtask build --release
+      - uses: actions/upload-artifact@v2
+        with:
+          name: python-wheels
+          path: |
+            sdks/python/target/wheels/bowbend-*.whl
+            sdks/python/target/wheels/bowbend-*.tar.gz
+  lint:
+    name: Lint
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: clippy
+      - name: Fetch Python wheels
+        uses: actions/download-artifact@v2
+        with:
+          name: python-wheels
+      - name: Install Python lint tools
+        run: ls bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
+      - name: Run lints
+        run: cargo xtask lint
+  format:
+    name: Format
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+      # We only use nightly for a couple rustfmt features
+      - name: Install Rust nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+      - name: Fetch Python wheels
+        uses: actions/download-artifact@v2
+        with:
+          name: python-wheels
+      - name: Install Python format tools
+        run: ls bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
+      - name: Run lints
+        run: cargo xtask format --check
+
+  spellcheck:
+    name: Spellcheck
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install cargo spellcheck
+        run: cargo install --locked cargo-spellcheck
+      - name: Run spellcheck
+        run: cargo xtask spellcheck
