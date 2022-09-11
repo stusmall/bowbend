@@ -130,7 +130,6 @@ jobs:
           override: true
       # When we are working off a warm cache this binary is already installed.  It's okay to let this fail.
       - name: Install cargo spellcheck
-        run: cargo install --locked cargo-spellcheck
-        continue-on-error: true
+        run: cargo install --locked cargo-spellcheck || true
       - name: Run spellcheck
         run: cargo xtask spellcheck
