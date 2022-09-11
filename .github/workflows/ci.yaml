@@ -128,7 +128,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      # When we are working off a warm cache this binary is already installed.  It's okay to let this fail.
       - name: Install cargo spellcheck
         run: cargo install --locked cargo-spellcheck
+        continue-on-error: true
       - name: Run spellcheck
         run: cargo xtask spellcheck
