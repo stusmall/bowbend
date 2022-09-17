@@ -1,4 +1,4 @@
-on: [pull_request]
+on: [push, pull_request]
 
 name: Bowbend CI
 
@@ -18,7 +18,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -40,6 +40,67 @@ jobs:
           path: |
             sdks/python/target/wheels/bowbend-*.whl
             sdks/python/target/wheels/bowbend-*.tar.gz
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      # TODO: We should find a way to use the cffi called out in the pyproject.toml
+      - name: Install cffi and maturin
+        run: pip install cffi==1.15.1 maturin==0.12.9
+      # We are rebuilding as a debug build here instead of using the artifacts produced by the build step because debug
+      # builds have some extra assertions enabled.
+      - name: Build
+        run: cargo xtask build
+      - name: Install wheel
+        run: ls sdks/python/target/wheels/bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
+      - name: Run unit tests
+        run: cargo xtask test
+  integration-test:
+    name: Integration Tests
+    needs: build
+    # We aren't able to run vagrant inside the linux runners.  Using the MacOS runner lets us get around the problem of
+    # running a VM in a VM.  This is such an expensive way to just run some VMs.
+    runs-on: macos-10.15
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.vagrant.d/boxes
+          key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
+      - name: Install vagrant plugins
+        run: vagrant plugin install vagrant-hosts
+      - name: Run vagrant up
+        run: vagrant up --provider virtualbox
+      - name: Fetch Python wheels
+        uses: actions/download-artifact@v2
+        with:
+          name: python-wheels
+      - name: Run python integration test
+        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*-py3-none-linux_x86_64.whl | xargs -0  pip install && python3 /vagrant/sdks/python/integration/integration_test.py'
   lint:
     name: Lint
     needs: build
@@ -56,8 +117,8 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Rust nightly toolchain
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -88,7 +149,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-fmt-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
       # We only use nightly for a couple rustfmt features
       - name: Install Rust nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -104,8 +165,7 @@ jobs:
       - name: Install Python format tools
         run: ls bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
       - name: Run lints
-        run: cargo xtask format --check
-
+        run: cargo xtask format
   spellcheck:
     name: Spellcheck
     runs-on: ubuntu-22.04
@@ -121,7 +181,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-spellcheck-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
         uses: actions-rs/toolchain@v1
         with:

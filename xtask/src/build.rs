@@ -19,7 +19,7 @@ fn build_rust(release: bool) {
 
     println!("Generating headers");
     let mut gen_header_cmd = Command::new("cargo");
-    gen_header_cmd.args(&[
+    gen_header_cmd.args([
         "--color=always",
         "test",
         "--features",
@@ -38,7 +38,7 @@ fn build_python(release: bool) {
         .expect("Failed to set up destination for python header file");
     println!("Prepping the header for cffi");
     let mut preprocessor_cmd = Command::new("gcc");
-    preprocessor_cmd.args(&[
+    preprocessor_cmd.args([
         "-E",
         &project_root()
             .join("target/bowbend_no_includes.h")
@@ -53,9 +53,9 @@ fn build_python(release: bool) {
     println!("Building python wheels");
     let mut maturin_cmd = Command::new("maturin");
     if release {
-        maturin_cmd.args(&["build", "--release", "-m", manifest.to_str().unwrap()]);
+        maturin_cmd.args(["build", "--release", "-m", manifest.to_str().unwrap()]);
     } else {
-        maturin_cmd.args(&["build", "-m", manifest.to_str().unwrap()]);
+        maturin_cmd.args(["build", "-m", manifest.to_str().unwrap()]);
     }
     check_command!(maturin_cmd, "Python build failed:  {}");
 }

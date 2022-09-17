@@ -41,7 +41,7 @@ pub async fn entry_point(
     let throttled_stream = if let Some(range) = throttle_range {
         throttle_stream(range, target_stream)
     } else {
-        //TODO: IF this isn't set, we should have a simplier code path to fault.  Right
+        //TODO: IF this isn't set, we should have a simpler code path to fault.  Right
         // now this dies for sampling an empty range
         throttle_stream(Range::default(), target_stream)
     };
@@ -54,9 +54,7 @@ pub async fn entry_point(
     let results = full_open_port_scan(Box::pin(ping_result_stream), port_list).await;
     tracing::trace!("We finished a full open port scan");
 
-    Ok(results.boxed())
-    // TODO: This is just here to make the compiler happier
-    //Ok(stream::iter(failed))
+    Ok(stream::iter(failed).chain(results.boxed()).boxed())
 }
 
 /// Set up the tracing module.  This dumps out detailed traces of the exact
