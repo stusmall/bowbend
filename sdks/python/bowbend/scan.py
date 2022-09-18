@@ -14,19 +14,18 @@ class ScanFinished:
 
 def _spawn_scan(builder: Builder,
                 queue: SyncQueue[Union[Error, ScanFinished, Report]]):
-    @ffi.callback("void(*)(FfiResult_Report_t)")
-    def callback(report_result) -> None:
-        print(f"PYTHON: In callback {report_result}")
-        if report_result.status_code == 0:
-            report = Report(report_result.contents)
-            queue.put(report)
+    @ffi.callback("void(*)(StreamItem_FfiResult_Report_t)")
+    def callback(item) -> None:
+        if item.complete:
+            queue.put(ScanFinished())
         else:
-            error = Error(report_result.status_code)
-            print("We have an error")
-            queue.put(error)
+            if item.item.status_code == 0:
+                report = Report(item.item.contents)
+                queue.put(report)
+            else:
+                error = Error(item.item.status_code)
+                queue.put(error)
     lib.start_scan(builder._inner, callback)
-    print("Adding scan finished to queue")
-    queue.put(ScanFinished())
 
 
 class Scan:

@@ -1,17 +1,14 @@
+import asyncio
 from ipaddress import ip_address
-from os import environ
 
 from bowbend import Builder, Scan, Target
-import pytest
 
 from bowbend.report import PortStatus
 from bowbend.scan import ScanFinished
 
 
-@pytest.mark.timeout(10)
-@pytest.mark.skipif(environ.get('INTEGRATION') is None, reason="only ran with integration VMs")
-@pytest.mark.asyncio
-async def test_scan_by_ip():
+
+async def main():
     ipv4_target = Target(ip_address("192.168.56.3"))
     builder = Builder()
     builder.set_ping(False)
@@ -24,3 +21,7 @@ async def test_scan_by_ip():
     assert result.contents.ports.get(80).status == PortStatus.OPEN
     assert result.contents.ports.get(1337).status == PortStatus.CLOSED
     assert result.contents.ports.get(123) is None
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
