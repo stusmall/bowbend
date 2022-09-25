@@ -1,8 +1,11 @@
+//! This manages everything needed for the initial ICMP sweep to see if hosts
+//! are up.
+
 use std::{
     collections::HashMap,
     io,
     net::{IpAddr, SocketAddr},
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 
 use async_stream::stream;
@@ -17,43 +20,49 @@ use crate::{
         icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
         icmp_writer::{send_ping, PingSentSummary},
     },
+    stream::iter,
     target::TargetInstance,
     utils::batch_stream::batch_stream,
     PortscanErr,
 };
 
 pub(crate) mod icmp_listener;
-pub mod icmp_writer;
+pub(crate) mod icmp_writer;
 mod packet;
 
-/// The results of an send ICMP hello if sent.  A valid
+/// The results of an send ICMP hello if sent.
 #[derive(Debug)]
 pub struct PingResult {
-    pub destination: TargetInstance,
-    pub ping_sent: Option<SystemTime>,
+    /// The time when either the ping was sent or attempted to be sent
+    pub ping_sent: SystemTime,
+    /// The result of the ping.  Either we got a reply, we timed out or hit some
+    /// type of IO failure
     pub result_type: PingResultType,
 }
 
 /// The result from our ICMP stage.
 #[derive(Debug)]
 pub enum PingResultType {
+    /// We hit an IO error when trying to send the ping
+    Error(io::Error),
     /// We sent an ICMP hello but timeout waiting for a reply
     Timeout,
     /// We received a reply
     Reply(IcmpSummary),
-    /// We've deiced to skip ping.
-    Skipped,
 }
 
+/// Details on an ICMP reply we received.  Right now we are just holding onto
+/// the time received.
 #[derive(Debug)]
 pub struct IcmpSummary {
-    pub time_received: Instant,
+    /// The time the reply was received.
+    pub time_received: SystemTime,
 }
 
 #[tracing::instrument(skip(target_stream))]
 pub(crate) async fn icmp_sweep(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
-) -> Result<impl Stream<Item = PingResult>, PortscanErr> {
+) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
     #[instrument(level = "error")]
     fn socket_open_error(_: io::Error) -> PortscanErr {
         PortscanErr::InsufficientPermission
@@ -78,11 +87,13 @@ pub(crate) async fn icmp_sweep(
             let dest = SocketAddr::new(target.get_ip(), 0).into();
             match target.get_ip() {
                 IpAddr::V4(_) => {
-                    let future = send_ping(&icmpv4_sender, dest, random(), random());
+                    let future =
+                        send_ping(target.clone(), &icmpv4_sender, dest, random(), random());
                     sent_pings.insert(target, future);
                 }
                 IpAddr::V6(_) => {
-                    let future = send_ping(&icmpv6_sender, dest, random(), random());
+                    let future =
+                        send_ping(target.clone(), &icmpv6_sender, dest, random(), random());
                     sent_pings.insert(target, future);
                 }
             }
@@ -90,19 +101,32 @@ pub(crate) async fn icmp_sweep(
     }
 
     let mut targets = HashMap::new();
+    let mut errors = Vec::new();
     for (target, output) in sent_pings {
-        let identity = output.await.unwrap(); //TODO: We should include the target with the error
-        targets.insert(target.get_ip(), (target.to_owned(), identity));
+        match output.await {
+            Ok(identity) => {
+                targets.insert(target.get_ip(), (target.to_owned(), identity));
+            }
+            Err(e) => {
+                errors.push((
+                    e.target_instance,
+                    Some(PingResult {
+                        ping_sent: SystemTime::now(),
+                        result_type: PingResultType::Error(e.error),
+                    }),
+                ));
+            }
+        };
     }
     let merged_stream = combine(icmpv4_listener, icmpv6_listener);
-    Ok(await_results(targets, merged_stream))
+    Ok(combine(iter(errors), await_results(targets, merged_stream)))
 }
 
 #[instrument(skip(targets, icmp_listener))]
 fn await_results(
     mut targets: HashMap<IpAddr, (TargetInstance, PingSentSummary)>,
     mut icmp_listener: impl Stream<Item = io::Result<ReceivedIcmpPacket>> + Unpin,
-) -> impl Stream<Item = PingResult> {
+) -> impl Stream<Item = (TargetInstance, Option<PingResult>)> {
     stream! {
         let mut ping_timeout = sleep(Duration::from_millis(500)).boxed().fuse();
         let mut icmp_stream_future = icmp_listener.next().fuse();
@@ -111,11 +135,10 @@ fn await_results(
                 () = ping_timeout => {
                     // We've hit our timeout.  Anything left in the target list will get
                     for entry in targets {
-                        yield PingResult {
-                            destination: entry.1.0,
-                            ping_sent: Some(entry.1.1.time_sent),
+                        yield (entry.1.0, Some(PingResult {
+                            ping_sent: entry.1.1.time_sent,
                             result_type: PingResultType::Timeout
-                        };
+                        }));
                     }
                     break;
                 }
@@ -127,14 +150,12 @@ fn await_results(
                                 //TODO:  We shouldn't remove this if the IDs don't match
                                 if packet.identity == entry.1.icmp_identity {
                                     debug!("We got a match!  Yielding");
-                                    // This looks to match!  Yield it for the next step in the scan
-                                    yield PingResult{
-                                        destination: entry.0,
-                                        ping_sent: Some(entry.1.time_sent),
+                                    yield (entry.0, Some(PingResult{
+                                        ping_sent: entry.1.time_sent,
                                         result_type: PingResultType::Reply(IcmpSummary{
                                             time_received: packet.time_received
                                         })
-                                    };
+                                    }));
                                 } else {
                                     debug!("We got a message for {:?} which is a target but the identity doesn't match. {} {}", packet.source, packet.identity, entry.1.icmp_identity);
                                 }
@@ -159,30 +180,18 @@ fn await_results(
 #[instrument(skip(target_stream))]
 pub(crate) async fn skip_icmp(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
-) -> Result<impl Stream<Item = PingResult>, PortscanErr> {
-    Ok(target_stream.map(|target| PingResult {
-        destination: target,
-        ping_sent: None,
-        result_type: PingResultType::Skipped,
-    }))
+) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
+    Ok(target_stream.map(|target| (target, None)))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashMap,
-        io,
-        net::IpAddr,
-        time::{Instant, SystemTime},
-    };
+    use std::{collections::HashMap, io, net::IpAddr, time::SystemTime};
 
     use futures::{stream, StreamExt};
 
     use crate::{
-        icmp::{
-            await_results, icmp_listener::ReceivedIcmpPacket, icmp_writer::PingSentSummary,
-            PingResult,
-        },
+        icmp::{await_results, icmp_listener::ReceivedIcmpPacket, icmp_writer::PingSentSummary},
         target::TargetInstance,
     };
 
@@ -193,7 +202,7 @@ mod tests {
         Ok(ReceivedIcmpPacket {
             source: IpAddr::from([0, 0, 0, dest_least_significant_byte]),
             identity,
-            time_received: Instant::now(),
+            time_received: SystemTime::now(),
         })
     }
 
@@ -225,7 +234,7 @@ mod tests {
             .map(|number| build_received(number as u8, number))
             .collect();
 
-        let ping_results: Vec<PingResult> = await_results(target, stream::iter(received_pings))
+        let ping_results: Vec<_> = await_results(target, stream::iter(received_pings))
             .collect()
             .await;
         assert_eq!(ping_results.len(), 10);

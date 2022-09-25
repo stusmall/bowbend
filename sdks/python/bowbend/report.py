@@ -36,12 +36,28 @@ class PortReport:
         return f"Port {self.port} is {self.status}"
 
 
+class PingResultType(Enum):
+    RECEIVED_REPLY = 0
+    IO_ERROR = 1
+    TIMEOUT = 2
+
+
+class PingResult:
+    ping_result_type: PingResultType
+
+    def __init__(self, result_type: int):
+        self.ping_result_type = PingResultType(result_type)
+
+
 class ReportContents:
+    ping_result: Optional[PingResult]
     ports: Dict[int, PortReport]
 
     def __init__(self, internal: _CDataBase):
         assert ffi.typeof(internal) is ffi.typeof("ReportContents_t*")
-        print(f"The count of ports is {internal.ports.len}")
+        if internal.icmp is not None:
+            self.ping_result = PingResult(internal.icmp.result_type)
+
         self.ports = {}
         for i in range(internal.ports.len):
             # We are going to flatten this out a bit.  We don't have a great
@@ -55,7 +71,8 @@ class ReportContents:
     def __str__(self):
         to_ret = ""
         for port in self.ports.items():
-            to_ret = to_ret + "\n" + str(port[1])
+            if port[1] is not None:
+                to_ret = to_ret + "\n" + str(port[1])
         return to_ret
 
 

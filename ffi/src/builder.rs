@@ -30,6 +30,9 @@ pub fn new_builder() -> FfiBox<Builder> {
 }
 
 #[ffi_export]
+pub fn free_builder(_input: FfiBox<Builder>) {}
+
+#[ffi_export]
 pub fn add_target(builder: &mut Builder, target: &Target) {
     builder.targets.push(target.to_owned());
 }

@@ -7,6 +7,3 @@ class Error(Enum):
     FAILED_TO_RESOLVE_HOSTNAME = -3
     INSUFFICIENT_PERMISSION = -4
     UNKNOWN_ERROR = -5
-
-    def __str__(self):
-        raise Exception()

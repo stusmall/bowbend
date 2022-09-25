@@ -27,8 +27,7 @@ pub struct Report {
 /// The detailed report of the portscan if we got to it.
 #[derive(Debug)]
 pub struct ReportContents {
-    /// The results of pinging the host.  This will be none if we decided to
-    /// skip ping.
+    /// The results of pinging the host.
     pub icmp: Option<PingResult>,
     /// This will be none if we never made it to the point of running the
     /// portscan, for example if we pinged and it timed out

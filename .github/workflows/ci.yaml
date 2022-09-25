@@ -1,4 +1,8 @@
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
 
 name: Bowbend CI
 
@@ -23,7 +27,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.62.1
           override: true
       - name: Install Python
         uses: actions/setup-python@v4
@@ -60,7 +64,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.62.1
           override: true
       - name: Install Python
         uses: actions/setup-python@v4
@@ -74,7 +78,7 @@ jobs:
       - name: Build
         run: cargo xtask build
       - name: Install wheel
-        run: ls sdks/python/target/wheels/bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
+        run: ls sdks/python/target/wheels/bowbend-*linux*x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
       - name: Run unit tests
         run: cargo xtask test
   integration-test:
@@ -100,7 +104,7 @@ jobs:
         with:
           name: python-wheels
       - name: Run python integration test
-        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*-py3-none-linux_x86_64.whl | xargs -0  pip install && python3 /vagrant/sdks/python/integration/integration_test.py'
+        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*linux*x86_64.whl | xargs -0  sudo pip install && sudo python3 /vagrant/sdks/python/integration/integration_test.py'
   lint:
     name: Lint
     needs: build
@@ -122,7 +126,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.62.1
           override: true
           components: clippy
       - name: Fetch Python wheels
@@ -130,7 +134,7 @@ jobs:
         with:
           name: python-wheels
       - name: Install Python lint tools
-        run: ls bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
+        run: ls bowbend-*linux*x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
       - name: Run lints
         run: cargo xtask lint
   format:
@@ -163,7 +167,7 @@ jobs:
         with:
           name: python-wheels
       - name: Install Python format tools
-        run: ls bowbend-*-py3-none-linux_x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
+        run: ls bowbend-*linux*x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
       - name: Run lints
         run: cargo xtask format
   spellcheck:
@@ -186,7 +190,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.62.1
           override: true
       # When we are working off a warm cache this binary is already installed.  It's okay to let this fail.
       - name: Install cargo spellcheck

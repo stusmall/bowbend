@@ -3,7 +3,7 @@ use std::{
     mem::MaybeUninit,
     net::{IpAddr, SocketAddr},
     os::unix::io::AsRawFd,
-    time::Instant,
+    time::SystemTime,
 };
 
 use async_stream::try_stream;
@@ -20,7 +20,7 @@ use tracing::{info, instrument, warn};
 pub(crate) struct ReceivedIcmpPacket {
     pub source: IpAddr,
     pub identity: u16,
-    pub time_received: Instant,
+    pub time_received: SystemTime,
 }
 
 #[instrument(level = "trace")]
@@ -95,7 +95,7 @@ fn parse_icmp(source: SocketAddr, ip_payload: &[u8]) -> Option<ReceivedIcmpPacke
         ReceivedIcmpPacket {
             source: source.ip(),
             identity,
-            time_received: Instant::now(),
+            time_received: SystemTime::now(),
         }
     });
     if to_ret.is_none() {
