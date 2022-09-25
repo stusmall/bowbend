@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub mod err;
-mod icmp;
+pub mod icmp;
 pub mod report;
 pub mod target;
 mod tcp;
@@ -41,8 +41,8 @@ pub async fn entry_point(
     let throttled_stream = if let Some(range) = throttle_range {
         throttle_stream(range, target_stream)
     } else {
-        //TODO: IF this isn't set, we should have a simpler code path to fault.  Right
-        // now this dies for sampling an empty range
+        //TODO: IF this isn't set, we should have a simpler code path to default.
+        // Right now this dies for sampling an empty range
         throttle_stream(Range::default(), target_stream)
     };
     let ping_result_stream = if ping {

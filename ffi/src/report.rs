@@ -1,6 +1,7 @@
 use ::safer_ffi::prelude::*;
 use bowbend_core::{
     err::PortscanErr,
+    icmp::{PingResult as InternalPingResult, PingResultType as InternalPingResultType},
     report::{
         PortReport as InternalPortReport, PortStatus as InternalPortStatus,
         Report as InternalReport, ReportContents as InternalReportContents,
@@ -28,7 +29,7 @@ impl From<InternalReport> for Report {
         let contents = match to_convert.contents {
             Ok(internal_contents) => FfiResult::<ReportContents> {
                 status_code: StatusCodes::Ok,
-                contents: Some(repr_c::Box::new(internal_contents.into())),
+                contents: Some(Box::new(internal_contents.into())),
             },
             Err(e) => match e {
                 PortscanErr::FailedToResolveHostname(_) => FfiResult {
@@ -53,19 +54,24 @@ impl From<InternalReport> for Report {
 #[derive_ReprC]
 #[repr(C)]
 pub struct ReportContents {
-    //TODO: We need to add the ping result
-    // TODO: It would be nice if we could make this a hMap<PortNumber, PortStatus>.  Right now
+    icmp: Option<Box<PingResult>>,
+    // It would be nice if we could make this a hMap<PortNumber, PortStatus>.  Right now
     // safer_ffi doesn't have an FFI friendly Map yet but I bet it will eventually
-    ports: Option<safer_ffi::Vec<PortReport>>,
+    ports: safer_ffi::Vec<PortReport>,
 }
 
 impl From<InternalReportContents> for ReportContents {
     fn from(to_convert: InternalReportContents) -> Self {
-        let ports: Option<safer_ffi::Vec<PortReport>> = to_convert.ports.map(|ports| {
-            let x: Vec<PortReport> = ports.into_iter().map(PortReport::from).collect();
-            safer_ffi::Vec::from(x)
-        });
-        ReportContents { ports }
+        let ports: safer_ffi::Vec<PortReport> = to_convert
+            .ports
+            .map(|ports| {
+                let x: Vec<PortReport> = ports.into_iter().map(PortReport::from).collect();
+                safer_ffi::Vec::from(x)
+            })
+            .unwrap_or(safer_ffi::Vec::EMPTY);
+
+        let icmp = to_convert.icmp.map(|x| Box::new(x.into()));
+        ReportContents { icmp, ports }
     }
 }
 
@@ -97,6 +103,38 @@ impl From<InternalPortStatus> for PortStatus {
         match x {
             InternalPortStatus::Open => PortStatus::Open,
             InternalPortStatus::Closed => PortStatus::Closed,
+        }
+    }
+}
+
+#[derive_ReprC]
+#[repr(i8)]
+pub enum PingResultType {
+    ReceivedReply = 0,
+    IoError = 1,
+    Timeout = 2,
+}
+
+#[derive_ReprC]
+#[repr(C)]
+pub struct PingResult {
+    result_type: PingResultType,
+}
+
+impl From<InternalPingResult> for PingResult {
+    fn from(internal: InternalPingResult) -> Self {
+        // We can add the timestamps of these events on.  Right now u128 isn't ReprC but
+        // once it is, we can easily add them
+        match internal.result_type {
+            InternalPingResultType::Error(_) => PingResult {
+                result_type: PingResultType::IoError,
+            },
+            InternalPingResultType::Timeout => PingResult {
+                result_type: PingResultType::Timeout,
+            },
+            InternalPingResultType::Reply(_) => PingResult {
+                result_type: PingResultType::ReceivedReply,
+            },
         }
     }
 }

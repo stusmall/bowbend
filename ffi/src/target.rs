@@ -29,16 +29,6 @@ pub struct Target {
     contents: safer_ffi::Vec<u8>,
 }
 
-impl Default for Target {
-    // TODO: DELETE THIS.  its usekess
-    fn default() -> Self {
-        Target {
-            target_type: TargetType::IPv4,
-            contents: safer_ffi::Vec::EMPTY,
-        }
-    }
-}
-
 impl Clone for Target {
     fn clone(&self) -> Self {
         Target {
@@ -192,6 +182,9 @@ fn display_target(target: &Target) -> char_p_boxed {
     let x = s.try_into();
     x.unwrap()
 }
+
+#[ffi_export]
+fn free_target(_to_free: FfiResult<Target>) {}
 
 impl From<Target> for InternalTarget {
     fn from(ffi_target: Target) -> Self {

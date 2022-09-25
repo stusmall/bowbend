@@ -12,39 +12,47 @@ use tracing::instrument;
 use crate::{
     icmp::{PingResult, PingResultType},
     report::{PortReport, PortStatus, Report, ReportContents},
+    target::TargetInstance,
 };
 
 #[instrument(level = "trace", skip(input_stream))]
 pub(crate) async fn full_open_port_scan(
-    mut input_stream: impl Stream<Item = PingResult> + Unpin,
+    mut input_stream: impl Stream<Item = (TargetInstance, Option<PingResult>)> + Unpin,
     port_list: Vec<u16>,
 ) -> impl Stream<Item = Report> {
     stream! {
-        while let Some(ping_result) = input_stream.next().await {
-            match ping_result.result_type {
-                PingResultType::Reply(_) | PingResultType::Skipped => {
-                    let result = scan_host(ping_result, port_list.clone()).await;
+        while let Some(target) = input_stream.next().await {
+            let should_scan = target.1.as_ref().map(|x| {if let PingResultType::Error(_) = x.result_type {
+                false
+            }  else {
+                true
+            }}).unwrap_or(true);
+
+            if should_scan {
+                let result = scan_host(target.0, target.1, port_list.clone()).await;
                     yield result;
-                }
-                PingResultType::Timeout => {
-                    yield Report {
-                        target: ping_result.destination.clone().into(),
-                        instance: Some(ping_result.destination.get_ip()),
+            } else {
+                yield Report {
+                        target: target.0.clone().into(),
+                        instance: Some(target.0.get_ip()),
                         contents: Ok(ReportContents {
-                            icmp: Some(ping_result),
+                            icmp: target.1,
                             ports: None,
                         }),
-                    };
-                }
-            }
+                    }
+            };
         }
     }
 }
 
 #[instrument(level = "trace")]
-async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
+async fn scan_host(
+    target: TargetInstance,
+    ping_result: Option<PingResult>,
+    mut ports: Vec<u16>,
+) -> Report {
     let mut connection_futures = vec![];
-    let ip = ping_result.destination.get_ip();
+    let ip = target.get_ip();
     ports.shuffle(&mut thread_rng());
     for port in ports {
         let socket_addr = SocketAddr::new(ip, port);
@@ -68,10 +76,10 @@ async fn scan_host(ping_result: PingResult, mut ports: Vec<u16>) -> Report {
         })
         .collect();
     Report {
-        target: ping_result.destination.clone().into(),
-        instance: Some(ping_result.destination.get_ip()),
+        target: target.into(),
+        instance: Some(ip),
         contents: Ok(ReportContents {
-            icmp: Some(ping_result),
+            icmp: ping_result,
             ports: Some(ports),
         }),
     }
