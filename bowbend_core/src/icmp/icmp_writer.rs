@@ -1,7 +1,7 @@
-use std::{io, net::SocketAddr, os::unix::io::AsRawFd, time::SystemTime};
+use std::{io, net::SocketAddr, os::unix::io::AsRawFd, sync::Arc, time::SystemTime};
 
 use socket2::{SockAddr, Socket};
-use tokio::io::unix::AsyncFd;
+use tokio::{io::unix::AsyncFd, sync::Semaphore};
 use tracing::{info, instrument};
 
 use crate::{
@@ -38,9 +38,9 @@ pub(crate) async fn send_ping(
     destination: SockAddr,
     icmp_identity: u16,
     sequence_count: u16,
+    semaphore: Arc<Semaphore>,
 ) -> Result<PingSentSummary, PingWriteError> {
-    let async_fd = AsyncFd::new(socket.as_raw_fd())
-        .map_err(|e| PingWriteError::new(target_instance.clone(), e))?;
+    let _permit = semaphore.acquire_owned().await;
     let mut buffer = [0; 12];
     let payload = vec![1, 2, 3, 4];
     let request = EchoRequest {
@@ -48,7 +48,8 @@ pub(crate) async fn send_ping(
         seq_cnt: sequence_count,
         payload: &payload,
     };
-
+    let async_fd = AsyncFd::new(socket.as_raw_fd())
+        .map_err(|e| PingWriteError::new(target_instance.clone(), e))?;
     //This unwrap is safe because we know this will always either be AF_INET or
     // AF_INET6
     match destination.as_socket().unwrap() {

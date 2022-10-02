@@ -3,7 +3,7 @@ Vagrant.configure("2") do |config|
   # Provision the host where we will be doing most of our tests
   config.vm.define "scanner", primary: true do |scanner|
     scanner.vm.box = "ubuntu/jammy64"
-    scanner.vm.provision "shell", inline: "apt-get update && apt-get install -y python3-pip"
+    scanner.vm.provision "shell", inline: "apt-get update && apt-get install -y python3-pip libasan6"
     scanner.vm.network "private_network", ip: "192.168.56.2"
     scanner.vm.provision :hosts, :sync_hosts => true
   end

@@ -1,3 +1,4 @@
+//! The target for a portscan.
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use ::safer_ffi::prelude::*;
@@ -21,6 +22,7 @@ pub enum TargetType {
     Hostname,
 }
 
+/// The target of a portscan.  It could be an IP, a network or a hostname.
 #[derive_ReprC]
 #[repr(C)]
 #[derive(Debug)]
@@ -97,7 +99,7 @@ pub fn new_ip_v4_address(input: slice_ref<u8>) -> FfiResult<Target> {
 /// Construct a new `Target` containing an IPv6 address.  If the input
 /// slice is anything besides 16 bytes then it will return an error result.
 #[ffi_export]
-fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
+pub fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
     if input.len() == 16 {
         FfiResult {
             status_code: StatusCodes::Ok,
@@ -114,8 +116,9 @@ fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
     }
 }
 
+/// Construct a new `Target` containing a CIDR notated IPv4 network.
 #[ffi_export]
-fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
+pub fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 4 && prefix <= 32 {
         let input =
             safer_ffi::Vec::from(vec![address[0], address[1], address[2], address[3], prefix]);
@@ -134,8 +137,9 @@ fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     }
 }
 
+/// Construct a new `Target` containing a CIDR notated IPv6 network.
 #[ffi_export]
-fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
+pub fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 16 && prefix <= 128 {
         let mut buffer = address.to_vec();
         buffer.push(prefix);
@@ -148,8 +152,9 @@ fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     }
 }
 
+/// Construct a new `Target` containing a hostname.
 #[ffi_export]
-fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
+pub fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
     // We are pretty liberal about what we are willing to attempt a DNS look up on.
     // So we aren't really going to do anytime of validation on hostnames
     let bytes = hostname.as_bytes();
@@ -169,16 +174,20 @@ fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
     }
 }
 
+/// Return a string representing the [Target].  This should be used to implement
+/// any language specific `to_string` or display methods
 #[ffi_export]
-fn display_target(target: &Target) -> char_p_boxed {
+pub fn display_target(target: &Target) -> char_p_boxed {
     let internal_target: InternalTarget = target.clone().into();
     let s = format!("{}", internal_target);
     let x = s.try_into();
     x.unwrap()
 }
 
+/// Free a previously returned [Target].  This accepts a [`FfiResult`] since all
+/// constructors return a result and we want to clean it all up.
 #[ffi_export]
-fn free_target(_to_free: FfiResult<Target>) {}
+pub fn free_target(_to_free: FfiResult<Target>) {}
 
 impl From<Target> for InternalTarget {
     fn from(ffi_target: Target) -> Self {

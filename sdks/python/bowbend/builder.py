@@ -30,6 +30,7 @@ class Builder:
         lib.set_ping(self._inner, ping)
 
     def set_tracing(self, tracing: bool) -> None:
+        logger.debug("Setting tracing %r", tracing)
         lib.set_tracing(self._inner, tracing)
 
     def set_throttle(self, minimum: int, maximum: int) -> None:
@@ -39,3 +40,9 @@ class Builder:
         result = lib.set_throttle(self._inner, minimum, maximum)
         if result.status_code != lib.STATUS_CODES_OK:
             raise ValueError("Failed to set throttle")
+
+    def set_max_in_flight(self, max_in_flight: int) -> None:
+        """ Set the maximum number of in flight tasks for a port scan.  This
+        is useful for limiting resource utilization. """
+        logger.debug("Setting max in flight %s", max_in_flight)
+        lib.set_max_in_flight(self._inner, max_in_flight)

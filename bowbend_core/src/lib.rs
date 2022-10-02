@@ -5,9 +5,10 @@
 //! language SDK.  The APIs of this crate are not public and will not be
 //! kept stable
 
-use std::ops::Range;
+use std::{ops::Range, sync::Arc};
 
 use futures::{stream, Stream};
+use tokio::sync::Semaphore;
 use tracing::{instrument, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
@@ -36,20 +37,30 @@ pub async fn entry_point(
     port_list: Vec<u16>,
     throttle_range: Option<Range<u64>>,
     ping: bool,
+    max_in_flight: u32,
 ) -> Result<impl Stream<Item = Report>, PortscanErr> {
+    let semaphore = Arc::new(Semaphore::new(max_in_flight as usize));
     let (target_stream, failed) = targets_to_instance_stream(targets);
-    let throttled_stream = if let Some(range) = throttle_range {
-        throttle_stream(range, target_stream).boxed()
+    let throttled_stream = if let Some(ref range) = throttle_range {
+        throttle_stream(range.clone(), target_stream).boxed()
     } else {
         target_stream.boxed()
     };
     let ping_result_stream = if ping {
-        icmp_sweep(throttled_stream).await?.boxed()
+        icmp_sweep(throttled_stream, semaphore.clone())
+            .await?
+            .boxed()
     } else {
         skip_icmp(throttled_stream).await?.boxed()
     };
     tracing::trace!("We have ping results back");
-    let results = full_open_port_scan(Box::pin(ping_result_stream), port_list).await;
+    let results = full_open_port_scan(
+        Box::pin(ping_result_stream),
+        port_list,
+        semaphore,
+        throttle_range,
+    )
+    .await;
     tracing::trace!("We finished a full open port scan");
 
     Ok(stream::iter(failed).chain(results.boxed()).boxed())

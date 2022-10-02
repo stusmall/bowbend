@@ -1,6 +1,6 @@
 //! This gives us a way to give each language a version of builder pattern over
 //! the FFI.  The core of the state is held inside the [Builder] struct.  It
-//! uses [`ReprC::opaque`] so we can give it member structures that aren't FFI
+//! uses [`ReprC!`]'s opaque so we can give it member structures that aren't FFI
 //! friendly.  We will just pass a reference along to [Builder] along with each
 //! method so we can work with the struct members on the rust side of FFI.
 use std::ops::Range;
@@ -24,16 +24,20 @@ pub struct Builder {
     pub(crate) ping: bool,
     pub(crate) tracing: bool,
     pub(crate) throttle_range: Option<Range<u64>>,
+    pub(crate) max_in_flight: u32,
 }
 
 impl Default for Builder {
     fn default() -> Self {
+        // This is a fairly important Default implementation.  This is where the default
+        // settings for all portscans for all SDKs comes from.
         Self {
             targets: vec![],
             ports: vec![80],
             ping: false,
             tracing: false,
             throttle_range: None,
+            max_in_flight: 500_000,
         }
     }
 }
@@ -91,4 +95,11 @@ pub fn set_throttle(builder: &mut Builder, min: u64, max: u64) -> FfiResult<()> 
     } else {
         FfiResult::err(StatusCodes::InvalidRange)
     }
+}
+
+/// Set the maximum number of in flight tasks for a port scan.  This is useful
+/// for limiting resource utilization.
+#[ffi_export]
+pub fn set_max_in_flight(builder: &mut Builder, max_in_flight: u32) {
+    builder.max_in_flight = max_in_flight;
 }

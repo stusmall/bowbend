@@ -14,6 +14,7 @@ async def basic_ip_scan():
     builder = Builder()
     builder.set_ping(False)
     builder.set_port_list([80, 1337])
+    builder.set_max_in_flight(10)
     builder.add_target(ipv4_target)
     scan = Scan(builder)
     result = await scan.next()

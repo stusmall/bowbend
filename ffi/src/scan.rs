@@ -72,17 +72,24 @@ pub fn start_scan(
     let handle = rt.spawn(async move {
         let targets: Vec<bowbend_core::target::Target> =
             builder.targets.iter().cloned().map(|x| x.into()).collect();
-        let mut stream =
-            match entry_point(targets, builder.ports, builder.throttle_range, builder.ping).await {
-                Ok(stream) => stream,
-                Err(e) => {
-                    unsafe {
-                        callback(StreamItem::next(e.into()));
-                        callback(StreamItem::done());
-                    }
-                    return;
+        let mut stream = match entry_point(
+            targets,
+            builder.ports,
+            builder.throttle_range,
+            builder.ping,
+            builder.max_in_flight,
+        )
+        .await
+        {
+            Ok(stream) => stream,
+            Err(e) => {
+                unsafe {
+                    callback(StreamItem::next(e.into()));
+                    callback(StreamItem::done());
                 }
-            };
+                return;
+            }
+        };
         while let Some(internal_report) = stream.next().await {
             let report = Report::from(internal_report);
             let ret = StreamItem::next(FfiResult {
