@@ -10,10 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class ScanFinished:
+    """
+    This marks the completion of the scan.  No more results will be emitted
+    from the `Scan` object
+    """
     logger.debug("Scan is finished")
 
 
 class Scan:
+    """
+    This represents a scan that has been kicked off.  It will act as a stream
+    of errors and results that a user can subscribe to.
+    """
     _queue: Queue[Union[Error, ScanFinished, Report]]
     _inner: Any
     _callback: Any
@@ -21,7 +29,6 @@ class Scan:
     def __init__(self, builder: Builder) -> None:
         @ffi.callback("void(*)(StreamItem_FfiResult_Report_t)")
         def callback(item) -> None:
-            logger.debug("In callback")
             item = ffi.gc(item, lib.free_stream_item)
             if item.complete:
                 self._queue.sync_q.put(ScanFinished())
@@ -41,4 +48,11 @@ class Scan:
                              lib.free_scan)
 
     async def next(self) -> Union[Error, ScanFinished, Report]:
+        """
+        Get the next item emitted by the stream.  This could be a `Report`
+        with information about a host scanned, some type of runtime `Error` or
+        `ScanFinished` indicating that there are no more values to be
+        returned.  This method shouldn't be called again after a
+        `ScanFinished` is returned.
+        """
         return await self._queue.async_q.get()

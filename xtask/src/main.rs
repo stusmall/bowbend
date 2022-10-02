@@ -17,6 +17,8 @@ enum XTaskArgs {
     Build {
         #[structopt(long)]
         release: bool,
+        #[structopt(long)]
+        asan: bool,
     },
     Clean,
     Format,
@@ -28,7 +30,7 @@ enum XTaskArgs {
 fn main() {
     let args = XTaskArgs::from_args();
     match args {
-        XTaskArgs::Build { release } => build(release),
+        XTaskArgs::Build { release, asan } => build(release, asan),
         XTaskArgs::Clean => clean(),
         XTaskArgs::Format => format(),
         XTaskArgs::Lint => lint(),

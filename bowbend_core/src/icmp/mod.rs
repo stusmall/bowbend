@@ -22,7 +22,6 @@ use crate::{
     },
     stream::iter,
     target::TargetInstance,
-    utils::batch_stream::batch_stream,
     PortscanErr,
 };
 
@@ -80,7 +79,7 @@ pub(crate) async fn icmp_sweep(
     let icmpv6_listener = listen_for_icmp(icmpv6_listener_socket).boxed();
     let mut sent_pings = HashMap::new();
 
-    let mut target_stream = Box::pin(batch_stream(100, target_stream));
+    let mut target_stream = target_stream.chunks(100).boxed();
 
     while let Some(targets) = target_stream.next().await {
         for target in targets {

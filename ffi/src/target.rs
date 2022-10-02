@@ -139,18 +139,12 @@ fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 16 && prefix <= 128 {
         let mut buffer = address.to_vec();
         buffer.push(prefix);
-        FfiResult {
-            status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(Target {
-                target_type: TargetType::IPv6Network,
-                contents: safer_ffi::Vec::from(buffer),
-            })),
-        }
+        FfiResult::ok(Target {
+            target_type: TargetType::IPv6Network,
+            contents: safer_ffi::Vec::from(buffer),
+        })
     } else {
-        FfiResult {
-            status_code: StatusCodes::InvalidLength,
-            contents: None,
-        }
+        FfiResult::err(StatusCodes::InvalidLength)
     }
 }
 

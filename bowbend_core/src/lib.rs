@@ -39,11 +39,9 @@ pub async fn entry_point(
 ) -> Result<impl Stream<Item = Report>, PortscanErr> {
     let (target_stream, failed) = targets_to_instance_stream(targets);
     let throttled_stream = if let Some(range) = throttle_range {
-        throttle_stream(range, target_stream)
+        throttle_stream(range, target_stream).boxed()
     } else {
-        //TODO: IF this isn't set, we should have a simpler code path to default.
-        // Right now this dies for sampling an empty range
-        throttle_stream(Range::default(), target_stream)
+        target_stream.boxed()
     };
     let ping_result_stream = if ping {
         icmp_sweep(throttled_stream).await?.boxed()

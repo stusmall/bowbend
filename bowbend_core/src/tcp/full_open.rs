@@ -14,7 +14,8 @@ use crate::{
     report::{PortReport, PortStatus, Report, ReportContents},
     target::TargetInstance,
 };
-
+//TODO: Instead of kicking off all scans, we should try to merge them together
+// in a list and mix it up to avoid beating up one host at a time
 #[instrument(level = "trace", skip(input_stream))]
 pub(crate) async fn full_open_port_scan(
     mut input_stream: impl Stream<Item = (TargetInstance, Option<PingResult>)> + Unpin,
