@@ -14,11 +14,15 @@ use crate::{
     result::{FfiResult, StatusCodes},
     target::Target,
 };
-//TODO: We need a way to mark a stream as finished.  It is implicit in the rust
-// stream, but not with these reports
+
+/// A final report for one host.  This is should contain everything the
+/// portscanner did with the host and learned about it.  It
 #[derive_ReprC]
 #[repr(C)]
 pub struct Report {
+    /// The original target of the portscan.  For IP this field will match
+    /// `instance`.  Other target types break up into multiple instances.
+    /// There will be one report for each.
     pub target: Target,
     pub instance: Option<Box<Ip>>,
     pub contents: FfiResult<ReportContents>,
@@ -50,7 +54,7 @@ impl From<InternalReport> for Report {
 #[repr(C)]
 pub struct ReportContents {
     icmp: Option<Box<PingResult>>,
-    // It would be nice if we could make this a hMap<PortNumber, PortStatus>.  Right now
+    // It would be nice if we could make this a Map<PortNumber, PortStatus>.  Right now
     // safer_ffi doesn't have an FFI friendly Map yet but I bet it will eventually
     ports: safer_ffi::Vec<PortReport>,
 }

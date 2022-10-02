@@ -7,8 +7,8 @@ on:
 name: Bowbend CI
 
 jobs:
-  build:
-    name: Build
+  build-release:
+    name: Build Release Packages
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -38,18 +38,18 @@ jobs:
         run: pip install cffi==1.15.1 maturin==0.12.9
       - name: Build
         run: cargo xtask build --release
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
-          name: python-wheels
+          name: python-release-wheels
           path: |
             target/wheels/bowbend-*.whl
             target/wheels/bowbend-*.tar.gz
-  unit-test:
-    name: Unit Tests
+  build-debug:
+    name: Build Debug Packages
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup cache
         uses: actions/cache@v3
         with:
@@ -57,6 +57,45 @@ jobs:
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('**/Cargo.lock') }}
+      # We need nightly for asan
+      - name: Install Rust nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      # TODO: We should find a way to use the cffi called out in the pyproject.toml
+      - name: Install cffi and maturin
+        run: pip install cffi==1.15.1 maturin==0.12.9
+      - name: Build
+        run: cargo xtask build --asan
+      - uses: actions/upload-artifact@v3
+        with:
+          name: python-debug-wheels
+          path: |
+            target/wheels/bowbend-*.whl
+            target/wheels/bowbend-*.tar.gz
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    needs: build-debug
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/caUnit Teche/
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
@@ -70,26 +109,23 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      # TODO: We should find a way to use the cffi called out in the pyproject.toml
-      - name: Install cffi and maturin
-        run: pip install cffi==1.15.1 maturin==0.12.9
-      # We are rebuilding as a debug build here instead of using the artifacts produced by the build step because debug
-      # builds have some extra assertions enabled.
-      - name: Build
-        run: cargo xtask build
-      - name: Install wheel
-        run: ls target/wheels/bowbend-*linux*x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
+      - name: Fetch Python wheels
+        uses: actions/download-artifact@v2
+        with:
+          name: python-release-wheels
+      - name: Install Python format tools
+        run: ls bowbend-*linux*x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
       - name: Run unit tests
         run: cargo xtask test
   integration-test:
     name: Integration Tests
-    needs: build
-    # We aren't able to run vagrant inside the linux runners.  Using the MacOS runner lets us get around the problem of
+    needs: build-release
+    # We aren't able to run vagrant inside the linux runners.  Using the macOS runner lets us get around the problem of
     # running a VM in a VM.  This is such an expensive way to just run some VMs.
     runs-on: macos-10.15
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup cache
         uses: actions/cache@v2
         with:
@@ -102,16 +138,40 @@ jobs:
       - name: Fetch Python wheels
         uses: actions/download-artifact@v2
         with:
-          name: python-wheels
+          name: python-release-wheels
       - name: Run python integration test
         run: vagrant ssh -c 'ls -d /vagrant/bowbend-*linux*x86_64.whl | xargs -0  sudo pip install && sudo python3 /vagrant/sdks/python/integration/integration_test.py'
+  integration-test-with-asan:
+    name: Debug Integration Tests
+    needs: build-debug
+    # We aren't able to run vagrant inside the linux runners.  Using the macOS runner lets us get around the problem of
+    # running a VM in a VM.  This is such an expensive way to just run some VMs.
+    runs-on: macos-10.15
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.vagrant.d/boxes
+          key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
+      - name: Install vagrant plugins
+        run: vagrant plugin install vagrant-hosts
+      - name: Run vagrant up
+        run: vagrant up --provider virtualbox
+      - name: Fetch Python wheels
+        uses: actions/download-artifact@v2
+        with:
+          name: python-debug-wheels
+      - name: Run python integration test
+        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*linux*x86_64.whl | xargs -0  sudo pip install && sudo PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /vagrant/sdks/python/integration/integration_test.py'
   lint:
     name: Lint
-    needs: build
+    needs: build-release
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup cache
         uses: actions/cache@v3
         with:
@@ -132,18 +192,18 @@ jobs:
       - name: Fetch Python wheels
         uses: actions/download-artifact@v2
         with:
-          name: python-wheels
+          name: python-release-wheels
       - name: Install Python lint tools
         run: ls bowbend-*linux*x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
       - name: Run lints
         run: cargo xtask lint
   format:
     name: Format
-    needs: build
+    needs: build-release
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup cache
         uses: actions/cache@v3
         with:
@@ -165,7 +225,7 @@ jobs:
       - name: Fetch Python wheels
         uses: actions/download-artifact@v2
         with:
-          name: python-wheels
+          name: python-release-wheels
       - name: Install Python format tools
         run: ls bowbend-*linux*x86_64.whl | awk '{print $1"[lint,test]"}' | xargs -0  pip install
       - name: Run lints
@@ -175,7 +235,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup cache
         uses: actions/cache@v3
         with:
@@ -192,8 +252,7 @@ jobs:
           profile: minimal
           toolchain: 1.62.1
           override: true
-      # When we are working off a warm cache this binary is already installed.  It's okay to let this fail.
       - name: Install cargo spellcheck
-        run: cargo install --locked cargo-spellcheck || true
+        run: wget -O ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.2/x86_64-unknown-linux-gnu-cargo-spellcheck-v0.12.2 && chmod +x ~/.cargo/bin/cargo-spellcheck
       - name: Run spellcheck
         run: cargo xtask spellcheck

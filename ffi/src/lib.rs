@@ -2,13 +2,12 @@
 //! reordered, or removed without compunction.  The only stable APIs are
 //! available in the language specific SDKs that depend on this module
 
-#![warn(missing_docs)]
-mod builder;
-mod ip;
-mod report;
-mod result;
-mod scan;
-mod target;
+pub mod builder;
+pub mod ip;
+pub mod report;
+pub mod result;
+pub mod scan;
+pub mod target;
 
 /// The following test function is necessary for the header generation.
 #[::safer_ffi::cfg_headers]
