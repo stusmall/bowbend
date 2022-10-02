@@ -21,6 +21,7 @@ async def basic_ip_scan():
     assert result.contents.ports.get(80).status == PortStatus.OPEN
     assert result.contents.ports.get(1337).status == PortStatus.CLOSED
     assert result.contents.ports.get(123) is None
+    print("Basic scan test passed")
 
 
 async def scan_with_icmp():
@@ -50,11 +51,12 @@ async def scan_with_icmp():
     assert_result(await scan.next())
     assert_result(await scan.next())
     assert type(await scan.next()) is ScanFinished
+    print("ICMP scan test passed")
 
 
 async def main():
     logging.basicConfig(level=logging.DEBUG)
-    #await basic_ip_scan()
+    await basic_ip_scan()
     await scan_with_icmp()
 
 

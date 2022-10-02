@@ -67,21 +67,22 @@ pub fn start_scan(
         setup_tracing();
     }
 
-    let builder = builder.clone(); //TODO: Change arg to take ownership.
+    let builder = builder.clone();
     let rt = Runtime::new().unwrap();
     let handle = rt.spawn(async move {
         let targets: Vec<bowbend_core::target::Target> =
             builder.targets.iter().cloned().map(|x| x.into()).collect();
-        let mut stream = match entry_point(targets, builder.ports, Some(0..1), builder.ping).await {
-            Ok(stream) => stream,
-            Err(e) => {
-                unsafe {
-                    callback(StreamItem::next(e.into()));
-                    callback(StreamItem::done());
+        let mut stream =
+            match entry_point(targets, builder.ports, builder.throttle_range, builder.ping).await {
+                Ok(stream) => stream,
+                Err(e) => {
+                    unsafe {
+                        callback(StreamItem::next(e.into()));
+                        callback(StreamItem::done());
+                    }
+                    return;
                 }
-                return;
-            }
-        };
+            };
         while let Some(internal_report) = stream.next().await {
             let report = Report::from(internal_report);
             let ret = StreamItem::next(FfiResult {

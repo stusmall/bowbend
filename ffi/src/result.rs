@@ -19,14 +19,41 @@ pub struct FfiResult<T> {
 #[derive(Debug)]
 pub enum StatusCodes {
     Ok = 0,
+    /// The buffer provided isn't the length expected.  For example an IPv4
+    /// address that isn't 4 bytes long.
     InvalidLength = -1,
+    /// The buffer provided doesn't contain valid UTF-8.
     InvalidUTF8 = -2,
+    /// The provided hostname failed to resolve.
     FailedToResolveHostname = -3,
     /// The most likely cause of this is trying to use a raw socket when not
-    /// root.  This is basically anything besides a full open scan
+    /// root.  This is basically anything besides a full open scan.
     InsufficientPermission = -4,
+    /// A range provided is invalid.  One example possible cause is in the
+    /// minimum is equal to or greater than the maximum.
+    InvalidRange = -5,
     /// We've failed to setup for a portscan for some unknown, internal error.
-    UnknownError = -5,
+    UnknownError = -100,
+}
+
+impl<T> FfiResult<T> {
+    /// A constructor for the [Ok](std::result::Result::Ok) variant of our FFI
+    /// friendly [std::result::Result]
+    pub fn ok(value: T) -> Self {
+        FfiResult {
+            status_code: StatusCodes::Ok,
+            contents: Some(repr_c::Box::new(value)),
+        }
+    }
+
+    /// A constructor for the [Err](std::result::Result::Err) variant of our FFI
+    /// friendly [std::result::Result]
+    pub fn err(status_code: StatusCodes) -> Self {
+        FfiResult {
+            status_code,
+            contents: None,
+        }
+    }
 }
 
 impl<T> From<PortscanErr> for FfiResult<T> {

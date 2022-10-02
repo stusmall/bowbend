@@ -31,3 +31,11 @@ class Builder:
 
     def set_tracing(self, tracing: bool) -> None:
         lib.set_tracing(self._inner, tracing)
+
+    def set_throttle(self, minimum: int, maximum: int) -> None:
+        """ Set a range for random pauses to be inserted in various points
+        during a scan.  Each time this is applied a random value between
+        minimum and maximum will be used. """
+        result = lib.set_throttle(self._inner, minimum, maximum)
+        if result.status_code != lib.STATUS_CODES_OK:
+            raise ValueError("Failed to set throttle")

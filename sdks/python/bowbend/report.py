@@ -55,7 +55,7 @@ class ReportContents:
 
     def __init__(self, internal: _CDataBase):
         assert ffi.typeof(internal) is ffi.typeof("ReportContents_t*")
-        if internal.icmp is not None:
+        if internal.icmp != ffi.NULL:
             self.ping_result = PingResult(internal.icmp.result_type)
 
         self.ports = {}

@@ -1,17 +1,13 @@
 [workspace]
 
 members = [
-    "ffi",
     "bowbend_core",
+    "ffi",
+    "sdks/python",
     "xtask"
 ]
-
-# Maturin doesn't play well with workspaces
-exclude = ["sdks/python"]
 
 [profile.release]
 lto = true
 codegen-units = 1
-strip = true
 panic = "abort"
-

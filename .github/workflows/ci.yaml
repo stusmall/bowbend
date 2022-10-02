@@ -42,8 +42,8 @@ jobs:
         with:
           name: python-wheels
           path: |
-            sdks/python/target/wheels/bowbend-*.whl
-            sdks/python/target/wheels/bowbend-*.tar.gz
+            target/wheels/bowbend-*.whl
+            target/wheels/bowbend-*.tar.gz
   unit-test:
     name: Unit Tests
     runs-on: ubuntu-22.04
@@ -78,7 +78,7 @@ jobs:
       - name: Build
         run: cargo xtask build
       - name: Install wheel
-        run: ls sdks/python/target/wheels/bowbend-*linux*x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
+        run: ls target/wheels/bowbend-*linux*x86_64.whl | awk '{print $1"[test]"}' | xargs -0  pip install
       - name: Run unit tests
         run: cargo xtask test
   integration-test:

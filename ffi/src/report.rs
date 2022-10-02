@@ -27,19 +27,14 @@ pub struct Report {
 impl From<InternalReport> for Report {
     fn from(to_convert: InternalReport) -> Self {
         let contents = match to_convert.contents {
-            Ok(internal_contents) => FfiResult::<ReportContents> {
-                status_code: StatusCodes::Ok,
-                contents: Some(Box::new(internal_contents.into())),
-            },
+            Ok(internal_contents) => FfiResult::<ReportContents>::ok(internal_contents.into()),
             Err(e) => match e {
-                PortscanErr::FailedToResolveHostname(_) => FfiResult {
-                    status_code: StatusCodes::FailedToResolveHostname,
-                    contents: None,
-                },
-                PortscanErr::InsufficientPermission => FfiResult {
-                    status_code: StatusCodes::InsufficientPermission,
-                    contents: None,
-                },
+                PortscanErr::FailedToResolveHostname(_) => {
+                    FfiResult::err(StatusCodes::FailedToResolveHostname)
+                }
+                PortscanErr::InsufficientPermission => {
+                    FfiResult::err(StatusCodes::InsufficientPermission)
+                }
             },
         };
 
