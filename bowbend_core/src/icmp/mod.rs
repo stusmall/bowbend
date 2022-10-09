@@ -61,7 +61,7 @@ pub struct IcmpSummary {
 
 #[tracing::instrument(skip(target_stream))]
 pub(crate) async fn icmp_sweep(
-    target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
+    mut target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin,
     semaphore: Arc<Semaphore>,
 ) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
     #[instrument(level = "error")]
@@ -80,35 +80,31 @@ pub(crate) async fn icmp_sweep(
     let icmpv4_listener = listen_for_icmp(icmpv4_listener_socket).boxed();
     let icmpv6_listener = listen_for_icmp(icmpv6_listener_socket).boxed();
     let mut sent_pings = HashMap::new();
-    //TODO: update to use this pattern https://github.com/tokio-rs/tokio/discussions/2648
-    let mut target_stream = target_stream.chunks(100).boxed();
 
-    while let Some(targets) = target_stream.next().await {
-        for target in targets {
-            let dest = SocketAddr::new(target.get_ip(), 0).into();
-            match target.get_ip() {
-                IpAddr::V4(_) => {
-                    let future = send_ping(
-                        target.clone(),
-                        &icmpv4_sender,
-                        dest,
-                        random(),
-                        random(),
-                        semaphore.clone(),
-                    );
-                    sent_pings.insert(target, future);
-                }
-                IpAddr::V6(_) => {
-                    let future = send_ping(
-                        target.clone(),
-                        &icmpv6_sender,
-                        dest,
-                        random(),
-                        random(),
-                        semaphore.clone(),
-                    );
-                    sent_pings.insert(target, future);
-                }
+    while let Some(target) = target_stream.next().await {
+        let dest = SocketAddr::new(target.get_ip(), 0).into();
+        match target.get_ip() {
+            IpAddr::V4(_) => {
+                let future = send_ping(
+                    target.clone(),
+                    &icmpv4_sender,
+                    dest,
+                    random(),
+                    random(),
+                    semaphore.clone(),
+                );
+                sent_pings.insert(target, future);
+            }
+            IpAddr::V6(_) => {
+                let future = send_ping(
+                    target.clone(),
+                    &icmpv6_sender,
+                    dest,
+                    random(),
+                    random(),
+                    semaphore.clone(),
+                );
+                sent_pings.insert(target, future);
             }
         }
     }
