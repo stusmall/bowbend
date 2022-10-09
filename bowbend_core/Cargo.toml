@@ -9,9 +9,9 @@ async-stream = "0.3.2"
 byteorder = "1.4"
 futures = "0.3"
 ipnet = "2.3"
-mio = { version="0.7", features=["os-ext"] }
+mio = { version="0.8", features=["os-ext"] }
 pin-project = "1"
-pnet = "0.28"
+pnet = "0.31"
 rand = { version="0.8", features=["std", "small_rng"] }
 socket2 = { version="0.4", features=["all"]}
 tokio = { version="1.10", features=["full"] }
