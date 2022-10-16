@@ -12,6 +12,7 @@ use safer_ffi::boxed::Box;
 use crate::{
     ip::Ip,
     result::{FfiResult, StatusCodes},
+    service_detection::ServiceDetectionConclusion,
     target::Target,
 };
 
@@ -44,7 +45,7 @@ impl From<InternalReport> for Report {
 
         Report {
             target: to_convert.target.into(),
-            instance: to_convert.instance.map(|x| Box::new(x.into())),
+            instance: to_convert.instance.map(|x| Box::new(x.get_ip().into())),
             contents,
         }
     }
@@ -79,6 +80,7 @@ impl From<InternalReportContents> for ReportContents {
 pub struct PortReport {
     pub port: u16,
     pub status: PortStatus,
+    pub service_detection_conclusions: Option<safer_ffi::Vec<ServiceDetectionConclusion>>,
 }
 
 impl From<InternalPortReport> for PortReport {
@@ -86,6 +88,14 @@ impl From<InternalPortReport> for PortReport {
         PortReport {
             port: x.port,
             status: x.status.into(),
+            service_detection_conclusions: x.service_detection_conclusions.map(|conclusions| {
+                safer_ffi::Vec::from(
+                    conclusions
+                        .into_iter()
+                        .map(ServiceDetectionConclusion::from)
+                        .collect::<Vec<ServiceDetectionConclusion>>(),
+                )
+            }),
         }
     }
 }

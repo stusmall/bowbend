@@ -21,6 +21,7 @@ use crate::{
 pub struct Builder {
     pub(crate) targets: Vec<Target>,
     pub(crate) ports: Vec<u16>,
+    pub(crate) run_service_detection: bool,
     pub(crate) ping: bool,
     pub(crate) tracing: bool,
     pub(crate) throttle_range: Option<Range<u64>>,
@@ -34,6 +35,7 @@ impl Default for Builder {
         Self {
             targets: vec![],
             ports: vec![80],
+            run_service_detection: false,
             ping: false,
             tracing: false,
             throttle_range: None,
@@ -64,6 +66,12 @@ pub fn add_target(builder: &mut Builder, target: &Target) {
 #[ffi_export]
 pub fn set_port_list(builder: &mut Builder, ports: slice_ref<u16>) {
     builder.ports = ports.to_vec();
+}
+
+/// Set if we should attempt to fingerprint services on open ports.
+#[ffi_export]
+pub fn set_run_service_detection(builder: &mut Builder, run_service_detection: bool) {
+    builder.run_service_detection = run_service_detection;
 }
 
 /// Set if we should ping each target before scanning or not.

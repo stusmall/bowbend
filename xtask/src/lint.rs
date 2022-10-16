@@ -8,7 +8,6 @@ pub(crate) fn lint() {
 }
 
 fn lint_rust() {
-    //TODO: Run fmt on the excluded crate
     println!("Running clippy");
     let mut lint_cmd = Command::new("cargo");
     lint_cmd.current_dir(project_root());

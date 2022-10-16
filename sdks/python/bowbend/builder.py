@@ -26,6 +26,9 @@ class Builder:
         slice_ref[0].len = len(ports)
         lib.set_port_list(self._inner, slice_ref[0])
 
+    def set_run_service_detection(self, run_service_detection: bool) -> None:
+        lib.set_run_service_detection(self._inner, run_service_detection)
+
     def set_ping(self, ping: bool) -> None:
         lib.set_ping(self._inner, ping)
 

@@ -76,6 +76,7 @@ pub fn start_scan(
             targets,
             builder.ports,
             builder.throttle_range,
+            builder.run_service_detection,
             builder.ping,
             builder.max_in_flight,
         )

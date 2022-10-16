@@ -97,7 +97,7 @@ pub enum TargetInstance {
 impl TargetInstance {
     /// An instance will always have an IP associated to it.  This just makes it
     /// easy to grab it.
-    pub(crate) fn get_ip(&self) -> IpAddr {
+    pub fn get_ip(&self) -> IpAddr {
         match self {
             TargetInstance::IP(ip) => *ip,
             TargetInstance::Network {
@@ -122,7 +122,7 @@ pub(crate) fn targets_to_instance_stream(
         match target {
             Target::IP(ip) => instances.push(TargetInstance::IP(ip)),
             Target::Network(network) => {
-                //TODO: Eventually this might be producing huge numbers of IPs.  We will want
+                // Eventually this might be producing huge numbers of IPs.  We will want
                 // to make a method that will break this up into
                 // multiple smaller subnets to scan, pick random ones and randomize their
                 // content.
@@ -130,7 +130,10 @@ pub(crate) fn targets_to_instance_stream(
                     instances.push(TargetInstance::IP(ip))
                 }
             }
-            Target::Hostname(hostname) => match hostname.to_socket_addrs() {
+            // This is a bit wonk.  to_socket_addrs wants a port at the end before it tries to parse
+            // or resolve.  In the future we will want to use a dedicated DNS library so we can
+            // controller the resolver.
+            Target::Hostname(hostname) => match format!("{hostname}:0").to_socket_addrs() {
                 Ok(ips) => {
                     for socket_adr in ips {
                         let ip = socket_adr.ip();

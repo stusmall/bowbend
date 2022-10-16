@@ -8,3 +8,5 @@ __pycache__
 *.so
 # This is here to ignore what's produced by maturin develop
 /sdks/python/bowbend/bowbend/
+# Hide all the log files vagrant drops
+*VBox*.log

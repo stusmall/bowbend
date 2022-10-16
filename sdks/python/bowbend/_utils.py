@@ -18,3 +18,7 @@ class FfiByteArray:
 
 def _char_star_to_python_string(ffi_string: Any) -> str:
     return ffi.string(ffi_string).decode('UTF-8')
+
+
+def _vec_uint8_to_python_string(ffi_string: Any) -> str:
+    return ffi.string(ffi_string.ptr, maxlen=ffi_string.len).decode('UTF-8')

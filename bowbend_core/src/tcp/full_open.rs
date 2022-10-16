@@ -1,3 +1,9 @@
+//! The most basic of the TCP scan strategies.  It attempts to open a connection
+//! on the targeted port by fully completely the TCP handshake.  This has a
+//! couple downsides.  It is slower and it can generate noise in service's logs.
+//! The big advantage is that it doesn't need privileged access to open raw
+//! sockets, so can be run as normal user
+
 use std::{io, net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 
 use futures::{future::join_all, FutureExt, Stream, StreamExt};
@@ -45,7 +51,7 @@ pub(crate) async fn full_open_port_scan(
         } else {
             skipped.push(Report {
                 target: target.0.clone().into(),
-                instance: Some(target.0.get_ip()),
+                instance: Some(target.0),
                 contents: Ok(ReportContents {
                     icmp: target.1,
                     ports: None,
@@ -94,16 +100,18 @@ async fn scan_host(
             Ok(Ok(_)) => PortReport {
                 port: *port,
                 status: PortStatus::Open,
+                service_detection_conclusions: None,
             },
             _ => PortReport {
                 port: *port,
                 status: PortStatus::Closed,
+                service_detection_conclusions: None,
             },
         })
         .collect();
     Report {
-        target: target.into(),
-        instance: Some(ip),
+        target: target.clone().into(),
+        instance: Some(target),
         contents: Ok(ReportContents {
             icmp: ping_result,
             ports: Some(ports),
