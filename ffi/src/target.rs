@@ -179,7 +179,7 @@ pub fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
 #[ffi_export]
 pub fn display_target(target: &Target) -> char_p_boxed {
     let internal_target: InternalTarget = target.clone().into();
-    let s = format!("{}", internal_target);
+    let s = format!("{internal_target}");
     let x = s.try_into();
     x.unwrap()
 }

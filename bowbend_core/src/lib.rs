@@ -9,13 +9,14 @@ use std::{ops::Range, sync::Arc};
 
 use futures::{stream, Stream};
 use tokio::sync::Semaphore;
-use tracing::{instrument, Level};
+use tracing::{instrument, trace, Level};
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
 use crate::{
     err::PortscanErr,
     icmp::{icmp_sweep, skip_icmp},
     report::Report,
+    service_detection::run_service_detection_on_target,
     stream::StreamExt,
     target::{targets_to_instance_stream, Target},
     tcp::full_open::full_open_port_scan,
@@ -25,8 +26,9 @@ use crate::{
 pub mod err;
 pub mod icmp;
 pub mod report;
+pub mod service_detection;
 pub mod target;
-mod tcp;
+pub mod tcp;
 pub(crate) mod utils;
 
 /// The entry point to kick off a batch of portscans.  It will return a stream
@@ -36,6 +38,7 @@ pub async fn entry_point(
     targets: Vec<Target>,
     port_list: Vec<u16>,
     throttle_range: Option<Range<u64>>,
+    run_service_detection: bool,
     ping: bool,
     max_in_flight: u32,
 ) -> Result<impl Stream<Item = Report>, PortscanErr> {
@@ -53,17 +56,25 @@ pub async fn entry_point(
     } else {
         skip_icmp(throttled_stream).await?.boxed()
     };
-    tracing::trace!("We have ping results back");
+    trace!("We have ping results back");
     let results = full_open_port_scan(
         Box::pin(ping_result_stream),
         port_list,
-        semaphore,
-        throttle_range,
+        semaphore.clone(),
+        throttle_range.clone(),
     )
     .await;
-    tracing::trace!("We finished a full open port scan");
+    trace!("We finished a full open port scan");
 
-    Ok(stream::iter(failed).chain(results.boxed()).boxed())
+    let results = if run_service_detection {
+        run_service_detection_on_target(results, semaphore.clone(), throttle_range)
+            .await
+            .boxed()
+    } else {
+        results.boxed()
+    };
+
+    Ok(stream::iter(failed).chain(results).boxed())
 }
 
 /// Set up the tracing module.  This dumps out detailed traces of the exact

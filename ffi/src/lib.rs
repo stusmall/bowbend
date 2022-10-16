@@ -7,6 +7,7 @@ pub mod ip;
 pub mod report;
 pub mod result;
 pub mod scan;
+pub mod service_detection;
 pub mod target;
 
 /// The following test function is necessary for the header generation.

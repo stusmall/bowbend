@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Union, Optional, Dict
+from typing import Union, Optional, Dict, List
 from ipaddress import IPv4Address, IPv6Address
 
 from _cffi_backend import _CDataBase  # type: ignore
@@ -7,6 +7,7 @@ from _cffi_backend import _CDataBase  # type: ignore
 from .error import Error
 from .bowbend import ffi  # type: ignore # noqa # pylint: disable=import-error
 from .target import Target
+from .service_detection import ServiceDetectionConclusion
 
 
 class PortStatus(Enum):
@@ -26,14 +27,29 @@ class PortStatus(Enum):
 class PortReport:
     port: int
     status: PortStatus
+    service_detection_conclusions: Optional[List[ServiceDetectionConclusion]]
 
     def __init__(self, internal):
         assert ffi.typeof(internal) is ffi.typeof("struct PortReport")
         self.port = internal.port
         self.status = PortStatus(internal.status)
+        if ffi.NULL not in (internal.service_detection_conclusions,
+                            internal.service_detection_conclusions.ptr):
+            self.service_detection_conclusions = []
+            for i in range(internal.service_detection_conclusions.len):
+                entry = ServiceDetectionConclusion(
+                    internal.service_detection_conclusions.ptr[i])
+                self.service_detection_conclusions.append(entry)
+        else:
+            self.service_detection_conclusions = None
 
     def __str__(self):
-        return f"Port {self.port} is {self.status}"
+        if self.service_detection_conclusions is None:
+            return f"Port {self.port} is {self.status}"
+        to_ret = f"Port {self.port} is {self.status}. Service detection(s):\n"
+        for service_detection in self.service_detection_conclusions:
+            to_ret = to_ret + "\t" + str(service_detection) + "\n"
+        return to_ret
 
 
 class PingResultType(Enum):

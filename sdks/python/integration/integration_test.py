@@ -55,10 +55,24 @@ async def scan_with_icmp():
     print("ICMP scan test passed")
 
 
+async def scan_with_service_detection():
+    builder = Builder()
+    builder.set_run_service_detection(True)
+    builder.set_port_list([80])
+    # builder.set_tracing(True)
+    builder.add_target(Target("web"))
+    scan = Scan(builder)
+    result = await scan.next()
+    assert "nginx" in result.contents.ports[80].service_detection_conclusions[0].service_name
+
+    assert type(await scan.next()) is ScanFinished
+    print("Scan with service detection passed")
+
 async def main():
     logging.basicConfig(level=logging.DEBUG)
     await basic_ip_scan()
     await scan_with_icmp()
+    await scan_with_service_detection()
 
 
 if __name__ == "__main__":

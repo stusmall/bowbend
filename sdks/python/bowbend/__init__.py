@@ -6,5 +6,7 @@ from .builder import Builder
 from .error import Error
 from .scan import Scan, ScanFinished
 from .target import Target
+from .service_detection import ServiceDetectionConclusion
 
-__all__ = ['Error', 'Builder', 'Scan', 'ScanFinished', 'Target']
+__all__ = ['Error', 'Builder', 'Scan', 'ScanFinished',
+           'ServiceDetectionConclusion', 'Target']
