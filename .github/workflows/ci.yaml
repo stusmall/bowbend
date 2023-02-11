@@ -35,8 +35,8 @@ jobs:
         with:
           python-version: '3.10'
       # TODO: We should find a way to use the cffi called out in the pyproject.toml
-      - name: Install cffi and maturin
-        run: pip install cffi==1.15.1 maturin==0.12.9
+      - name: Install cffi
+        run: pip install cffi==1.15.1
       - name: Build
         run: cargo xtask build --release
       - uses: actions/upload-artifact@v3
@@ -74,8 +74,8 @@ jobs:
         with:
           python-version: '3.10'
       # TODO: We should find a way to use the cffi called out in the pyproject.toml
-      - name: Install cffi and maturin
-        run: pip install cffi==1.15.1 maturin==0.12.9
+      - name: Install cffi
+        run: pip install cffi==1.15.1
       - name: Build
         run: cargo xtask build --asan
       - uses: actions/upload-artifact@v3

@@ -61,7 +61,7 @@ pub fn free_scan(_item: FfiResult<Scan>) {}
 #[ffi_export]
 pub fn start_scan(
     builder: &Builder,
-    callback: unsafe extern "C" fn(StreamItem<FfiResult<Report>>),
+    callback: extern "C" fn(StreamItem<FfiResult<Report>>),
 ) -> FfiResult<Scan> {
     if builder.tracing {
         setup_tracing();
@@ -84,10 +84,8 @@ pub fn start_scan(
         {
             Ok(stream) => stream,
             Err(e) => {
-                unsafe {
-                    callback(StreamItem::next(e.into()));
-                    callback(StreamItem::done());
-                }
+                callback(StreamItem::next(e.into()));
+                callback(StreamItem::done());
                 return;
             }
         };
@@ -98,11 +96,9 @@ pub fn start_scan(
                 contents: Some(repr_c::Box::new(report)),
             });
 
-            unsafe {
-                callback(ret);
-            }
+            callback(ret);
         }
-        unsafe { callback(StreamItem::done()) }
+        callback(StreamItem::done())
     });
     FfiResult {
         status_code: StatusCodes::Ok,
