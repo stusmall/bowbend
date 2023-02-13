@@ -238,7 +238,7 @@ pub trait Rule: Debug + Send + Sync + 'static {
 
 /// This is how certain we are of our conclusion.
 #[derive(Clone, Debug)]
-pub enum Certainty {
+pub enum ServiceDetectionCertainty {
     /// This is the highest level but still isn't absolute.  We found a version
     /// header or banner somewhere and are trusting that.  Obviously this
     /// could be fake or incorrect
@@ -259,7 +259,7 @@ pub enum Certainty {
 #[derive(Clone, Debug)]
 pub struct ServiceDetectionConclusion {
     /// How certain we are about this conclusion.
-    pub certainty: Certainty,
+    pub certainty: ServiceDetectionCertainty,
     /// A human readable string describing the service.  For example "nginx",
     /// "consul" or "postgres"
     pub service_name: String,

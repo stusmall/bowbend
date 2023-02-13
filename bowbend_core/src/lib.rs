@@ -5,85 +5,25 @@
 //! language SDK.  The APIs of this crate are not public and will not be
 //! kept stable
 
-use std::{ops::Range, sync::Arc};
+use futures::stream;
 
-use futures::{stream, Stream};
-use tokio::sync::Semaphore;
-use tracing::{instrument, trace, Level};
-use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
-
-use crate::{
+pub use crate::{
+    config::ConfigBuilder,
     err::PortscanErr,
-    icmp::{icmp_sweep, skip_icmp},
-    report::Report,
-    service_detection::run_service_detection_on_target,
-    stream::StreamExt,
-    target::{targets_to_instance_stream, Target},
-    tcp::full_open::full_open_port_scan,
-    utils::throttle_stream::throttle_stream,
+    icmp::{PingResult, PingResultType},
+    report::{PortReport, PortStatus, Report, ReportContents},
+    scan::start_scan,
+    service_detection::framework::{ServiceDetectionCertainty, ServiceDetectionConclusion},
+    target::{Target, TargetInstance},
 };
 
-pub mod err;
-pub mod icmp;
-pub mod report;
-pub mod service_detection;
-pub mod target;
-pub mod tcp;
+mod config;
+mod err;
+mod icmp;
+mod logging;
+mod report;
+mod scan;
+mod service_detection;
+mod target;
+mod tcp;
 pub(crate) mod utils;
-
-/// The entry point to kick off a batch of portscans.  It will return a stream
-/// of updates as events happens
-#[instrument(level = "trace")]
-pub async fn entry_point(
-    targets: Vec<Target>,
-    port_list: Vec<u16>,
-    throttle_range: Option<Range<u64>>,
-    run_service_detection: bool,
-    ping: bool,
-    max_in_flight: u32,
-) -> Result<impl Stream<Item = Report>, PortscanErr> {
-    let semaphore = Arc::new(Semaphore::new(max_in_flight as usize));
-    let (target_stream, failed) = targets_to_instance_stream(targets);
-    let throttled_stream = if let Some(ref range) = throttle_range {
-        throttle_stream(range.clone(), target_stream).boxed()
-    } else {
-        target_stream.boxed()
-    };
-    let ping_result_stream = if ping {
-        icmp_sweep(throttled_stream, semaphore.clone())
-            .await?
-            .boxed()
-    } else {
-        skip_icmp(throttled_stream).await?.boxed()
-    };
-    trace!("We have ping results back");
-    let results = full_open_port_scan(
-        Box::pin(ping_result_stream),
-        port_list,
-        semaphore.clone(),
-        throttle_range.clone(),
-    )
-    .await;
-    trace!("We finished a full open port scan");
-
-    let results = if run_service_detection {
-        run_service_detection_on_target(results, semaphore.clone(), throttle_range)
-            .await
-            .boxed()
-    } else {
-        results.boxed()
-    };
-
-    Ok(stream::iter(failed).chain(results).boxed())
-}
-
-/// Set up the tracing module.  This dumps out detailed traces of the exact
-/// code path to stdout.  This is only useful for internal development and not
-/// to a consumer of the library.
-pub fn setup_tracing() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
-        .with_span_events(FmtSpan::FULL)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-}

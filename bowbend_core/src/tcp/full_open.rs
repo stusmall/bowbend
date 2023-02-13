@@ -4,7 +4,7 @@
 //! The big advantage is that it doesn't need privileged access to open raw
 //! sockets, so can be run as normal user
 
-use std::{io, net::SocketAddr, ops::Range, sync::Arc, time::Duration};
+use std::{collections::HashMap, io, net::SocketAddr, ops::Range, sync::Arc, time::Duration};
 
 use futures::{future::join_all, FutureExt, Stream, StreamExt};
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
@@ -94,21 +94,33 @@ async fn scan_host(
         }
     }
     let results: Vec<(u16, Result<io::Result<_>, Elapsed>)> = join_all(connection_futures).await;
-    let ports: Vec<PortReport> = results
-        .iter()
-        .map(|(port, result)| match result {
-            Ok(Ok(_)) => PortReport {
-                port: *port,
-                status: PortStatus::Open,
-                service_detection_conclusions: None,
-            },
-            _ => PortReport {
-                port: *port,
-                status: PortStatus::Closed,
-                service_detection_conclusions: None,
-            },
-        })
-        .collect();
+    let ports: HashMap<u16, PortReport> =
+        results
+            .iter()
+            .fold(HashMap::new(), |mut map, (port, result)| match result {
+                Ok(Ok(_)) => {
+                    map.insert(
+                        *port,
+                        PortReport {
+                            port: *port,
+                            status: PortStatus::Open,
+                            service_detection_conclusions: None,
+                        },
+                    );
+                    map
+                }
+                _ => {
+                    map.insert(
+                        *port,
+                        PortReport {
+                            port: *port,
+                            status: PortStatus::Closed,
+                            service_detection_conclusions: None,
+                        },
+                    );
+                    map
+                }
+            });
     Report {
         target: target.clone().into(),
         instance: Some(target),

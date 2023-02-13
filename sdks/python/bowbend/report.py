@@ -5,7 +5,7 @@ from ipaddress import IPv4Address, IPv6Address
 from _cffi_backend import _CDataBase  # type: ignore
 
 from .error import Error
-from .bowbend import ffi  # type: ignore # noqa # pylint: disable=import-error
+from .bowbend import ffi, lib  # type: ignore # noqa # pylint: disable=import-error
 from .target import Target
 from .service_detection import ServiceDetectionConclusion
 
@@ -30,7 +30,7 @@ class PortReport:
     service_detection_conclusions: Optional[List[ServiceDetectionConclusion]]
 
     def __init__(self, internal):
-        assert ffi.typeof(internal) is ffi.typeof("struct PortReport")
+        assert ffi.typeof(internal) is ffi.typeof("struct PortReport *")
         self.port = internal.port
         self.status = PortStatus(internal.status)
         if ffi.NULL not in (internal.service_detection_conclusions,
@@ -71,18 +71,16 @@ class ReportContents:
 
     def __init__(self, internal: _CDataBase):
         assert ffi.typeof(internal) is ffi.typeof("ReportContents_t*")
-        if internal.icmp != ffi.NULL:
-            self.ping_result = PingResult(internal.icmp.result_type)
+        icmp = lib.get_icmp_result(internal)
+        if icmp != ffi.NULL:
+            self.ping_result = PingResult(icmp.result_type)
 
         self.ports = {}
-        for i in range(internal.ports.len):
-            # We are going to flatten this out a bit.  We don't have a great
-            # way to pass a Dict over the FFI layer, so we are just passing
-            # over a vec of reports and leaving it up to each SDK to turn it
-            # into a dictionary
-            port = internal.ports.ptr[i].port
-            report = PortReport(internal.ports.ptr[i])
-            self.ports[port] = report
+        ffi_port_buffer = ffi.gc(lib.get_ports(internal), lib.free_port_list)
+        for i in range(ffi_port_buffer.len):
+            port = ffi_port_buffer.ptr[i]
+            report = lib.get_port_report(internal, port)
+            self.ports[port] = PortReport(report)
 
     def __str__(self):
         to_ret = ""

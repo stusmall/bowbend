@@ -13,6 +13,7 @@ fn lint_rust() {
     lint_cmd.current_dir(project_root());
     lint_cmd.args(["clippy", "--color=always", "--", "-Dwarnings"]);
     check_command!(lint_cmd, "Failed to run cargo clippy: {}");
+    // We don't feel the need to lint the integration test.
 }
 
 fn lint_python_sdk() {

@@ -1,11 +1,10 @@
+use std::collections::HashMap;
+
 use ::safer_ffi::prelude::*;
 use bowbend_core::{
-    err::PortscanErr,
-    icmp::{PingResult as InternalPingResult, PingResultType as InternalPingResultType},
-    report::{
-        PortReport as InternalPortReport, PortStatus as InternalPortStatus,
-        Report as InternalReport, ReportContents as InternalReportContents,
-    },
+    PingResult as InternalPingResult, PingResultType as InternalPingResultType,
+    PortReport as InternalPortReport, PortStatus as InternalPortStatus, PortscanErr,
+    Report as InternalReport, ReportContents as InternalReportContents,
 };
 use safer_ffi::boxed::Box;
 
@@ -52,23 +51,46 @@ impl From<InternalReport> for Report {
 }
 
 #[derive_ReprC]
-#[repr(C)]
+#[ReprC::opaque]
 pub struct ReportContents {
     icmp: Option<Box<PingResult>>,
-    // It would be nice if we could make this a Map<PortNumber, PortStatus>.  Right now
-    // safer_ffi doesn't have an FFI friendly Map yet but I bet it will eventually
-    ports: safer_ffi::Vec<PortReport>,
+    ports: HashMap<u16, PortReport>,
 }
+
+#[ffi_export]
+pub fn get_icmp_result(report_contents: &ReportContents) -> Option<&PingResult> {
+    report_contents.icmp.as_deref()
+}
+
+#[ffi_export]
+pub fn get_port_report(report_contents: &ReportContents, port: u16) -> Option<&PortReport> {
+    report_contents.ports.get(&port)
+}
+
+#[ffi_export]
+pub fn get_ports(report_contents: &ReportContents) -> safer_ffi::Vec<u16> {
+    report_contents
+        .ports
+        .keys()
+        .cloned()
+        .collect::<Vec<u16>>()
+        .into()
+}
+
+#[ffi_export]
+pub fn free_port_list(_ports: safer_ffi::Vec<u16>) {}
 
 impl From<InternalReportContents> for ReportContents {
     fn from(to_convert: InternalReportContents) -> Self {
-        let ports: safer_ffi::Vec<PortReport> = to_convert
+        let ports: HashMap<u16, PortReport> = to_convert
             .ports
             .map(|ports| {
-                let x: Vec<PortReport> = ports.into_iter().map(PortReport::from).collect();
-                safer_ffi::Vec::from(x)
+                ports
+                    .into_iter()
+                    .map(|(port, port_report)| (port, PortReport::from(port_report)))
+                    .collect()
             })
-            .unwrap_or(safer_ffi::Vec::EMPTY);
+            .unwrap_or_default();
 
         let icmp = to_convert.icmp.map(|x| Box::new(x.into()));
         ReportContents { icmp, ports }

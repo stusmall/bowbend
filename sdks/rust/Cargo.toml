@@ -1,0 +1,7 @@
+[package]
+name = "bowbend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bowbend_core = { path = "../../bowbend_core" }

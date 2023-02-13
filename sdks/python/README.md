@@ -1,6 +1,10 @@
-#How to use address sanitizer with the module:
+# How to use address sanitizer with the module:
 
-maturin build --rustc-extra-args="-Clink-arg=-lasan -Zsanitizer=address" --target x86_64-unknown-linux-gnu && pip install --force-reinstall target/wheels/bowbend-0.1.0-py3-none-linux_x86_64.whl && LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 integration/integration_test.py
+First build it with: 
+`cargo xtask build --asan`
+
+Then you can run it in a test VM with:
+`vagrant ssh -c "sudo pip install --force-reinstall /vagrant/sdks/python/target/wheels/bowbend-0.1.0-py3-none-linux_x86_64.whl && sudo PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /vagrant/integration/python/integration_test.py"`
 
 # How to use GDB to debug the module:
 - Create a new venv `python3 -m venv venv; source venv/bin/activate`

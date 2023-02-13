@@ -3,12 +3,13 @@ use std::{fs::create_dir_all, process::Command};
 use crate::utils::{check_command, project_root};
 
 pub(crate) fn build(release: bool, asan: bool) {
+    build_core(release, asan);
     build_rust(release, asan);
     build_python(release, asan);
 }
 
-fn build_rust(release: bool, asan: bool) {
-    println!("Building rust packages");
+fn build_core(release: bool, asan: bool) {
+    println!("Building core rust packages");
     let mut build_cmd = Command::new("cargo");
     build_cmd.current_dir(project_root());
     build_cmd.arg("build").arg("--color=always");
@@ -35,6 +36,41 @@ fn build_rust(release: bool, asan: bool) {
         "generate_headers",
     ]);
     check_command!(gen_header_cmd, "Failed to build headers: {}");
+}
+
+fn build_rust(release: bool, asan: bool) {
+    println!("Building Rust SDK");
+    let mut build_cmd = Command::new("cargo");
+    build_cmd.current_dir(project_root());
+    build_cmd
+        .arg("build")
+        .arg("--color=always")
+        .arg("--manifest-path=sdks/rust/Cargo.toml");
+    if release {
+        build_cmd.arg("--release");
+    }
+    if asan {
+        build_cmd.env("RUSTFLAGS", "-Z sanitizer=address");
+        build_cmd.arg("--target");
+        build_cmd.arg("x86_64-unknown-linux-gnu");
+    }
+    check_command!(build_cmd, "Build Rust SDK failed:  {}");
+    println!("Building Rust integration test");
+    let mut build_cmd = Command::new("cargo");
+    build_cmd.current_dir(project_root());
+    build_cmd
+        .arg("build")
+        .arg("--color=always")
+        .arg("--manifest-path=integration/rust/Cargo.toml");
+    if release {
+        build_cmd.arg("--release");
+    }
+    if asan {
+        build_cmd.env("RUSTFLAGS", "-Z sanitizer=address");
+        build_cmd.arg("--target");
+        build_cmd.arg("x86_64-unknown-linux-gnu");
+    }
+    check_command!(build_cmd, "Build Rust integration test failed:  {}");
 }
 
 fn build_python(release: bool, asan: bool) {

@@ -16,4 +16,13 @@ pub(crate) fn clean() {
     cmd!(sh, "cargo clean --manifest-path sdks/python/Cargo.toml")
         .read()
         .expect("Failed to run cargo clean");
+    cmd!(sh, "cargo clean --manifest-path sdks/rust/Cargo.toml")
+        .read()
+        .expect("Failed to run cargo clean");
+    cmd!(
+        sh,
+        "cargo clean --manifest-path integration/rust/Cargo.toml"
+    )
+    .read()
+    .expect("Failed to run cargo clean");
 }

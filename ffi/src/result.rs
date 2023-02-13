@@ -1,5 +1,5 @@
 use ::safer_ffi::prelude::*;
-use bowbend_core::err::PortscanErr;
+use bowbend_core::PortscanErr;
 
 /// This is a poor imitation of the [std::result::Result] enum provided by rust.
 /// If `status_code` is 0, then it is an `Ok` and contents will be set.  If it

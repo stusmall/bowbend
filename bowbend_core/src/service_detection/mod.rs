@@ -33,7 +33,7 @@ pub async fn run_service_detection_on_target(
     while let Some(mut report) = report_stream.next().await {
         if let (Some(instance), Ok(contents)) = (&report.instance, &mut report.contents) {
             if let Some(ports) = &mut contents.ports {
-                for mut port in ports {
+                for mut port in ports.values_mut() {
                     if port.status == PortStatus::Open {
                         let service_detection_output = run_service_detection_on_port(
                             instance.clone(),

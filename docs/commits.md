@@ -21,11 +21,12 @@ The types used are:
 - feat - This is used for all new features.
 - fix - Bug fixes.
 - docs - This is for expansion of documentation, either doc strings or markdown readmes
-- ci - Improvements on CI, automated releases etc
 - chore - This includes changes that don't fall into any of the above categories. Things like bumping deps is a good
   example
 
 The scopes used are:
-
+- ci - Changes to CI, automated releases etc
 - core - Changes for the core engine that could affect all SDKs and all scan types
-- python - Changes that only impact the python SDK
+- python - Changes that only impact the Python SDK
+- rust - Changes that only impact the Rust SDK.  This does not mean changes to Rust code in general.  This scope 
+  should not be used for changes to the Rust core or adding general Rust tooling that also impacts core.

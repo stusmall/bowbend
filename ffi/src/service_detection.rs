@@ -1,6 +1,6 @@
 use ::safer_ffi::prelude::*;
-use bowbend_core::service_detection::framework::{
-    Certainty as InternalCertainty,
+use bowbend_core::{
+    ServiceDetectionCertainty as InternalServiceDetectionCertainty,
     ServiceDetectionConclusion as InternalServiceDetectionConclusion,
 };
 
@@ -12,7 +12,7 @@ use bowbend_core::service_detection::framework::{
 #[derive_ReprC]
 #[repr(C)]
 pub struct ServiceDetectionConclusion {
-    pub certainty: Certainty,
+    pub certainty: ServiceDetectionCertainty,
     pub service_name: safer_ffi::String,
     pub service_version: Option<safer_ffi::String>,
 }
@@ -30,7 +30,7 @@ impl From<InternalServiceDetectionConclusion> for ServiceDetectionConclusion {
 /// This is how certain we are of our conclusion.
 #[derive_ReprC]
 #[repr(i8)]
-pub enum Certainty {
+pub enum ServiceDetectionCertainty {
     /// This is the highest level but still isn't absolute.  We found a version
     /// header or banner somewhere and are trusting that.  Obviously this
     /// could be fake or incorrect
@@ -43,13 +43,13 @@ pub enum Certainty {
     Low = 3,
 }
 
-impl From<InternalCertainty> for Certainty {
-    fn from(value: InternalCertainty) -> Self {
+impl From<InternalServiceDetectionCertainty> for ServiceDetectionCertainty {
+    fn from(value: InternalServiceDetectionCertainty) -> Self {
         match value {
-            InternalCertainty::Advertised => Certainty::Advertised,
-            InternalCertainty::High => Certainty::High,
-            InternalCertainty::Medium => Certainty::Medium,
-            InternalCertainty::Low => Certainty::Low,
+            InternalServiceDetectionCertainty::Advertised => ServiceDetectionCertainty::Advertised,
+            InternalServiceDetectionCertainty::High => ServiceDetectionCertainty::High,
+            InternalServiceDetectionCertainty::Medium => ServiceDetectionCertainty::Medium,
+            InternalServiceDetectionCertainty::Low => ServiceDetectionCertainty::Low,
         }
     }
 }

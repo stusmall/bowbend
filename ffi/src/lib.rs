@@ -2,7 +2,7 @@
 //! reordered, or removed without compunction.  The only stable APIs are
 //! available in the language specific SDKs that depend on this module
 
-pub mod builder;
+pub mod config;
 pub mod ip;
 pub mod report;
 pub mod result;

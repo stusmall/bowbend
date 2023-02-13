@@ -82,7 +82,8 @@ impl RuleResults {
 mod tests {
     use crate::service_detection::framework::{
         rule_results::{RuleResult, RuleResults},
-        Certainty, PortHint, Rule, RuleClosure, RuleId, RuleLoudness, ServiceDetectionConclusion,
+        PortHint, Rule, RuleClosure, RuleId, RuleLoudness, ServiceDetectionCertainty,
+        ServiceDetectionConclusion,
     };
 
     #[tokio::test]
@@ -114,7 +115,7 @@ mod tests {
 
             fn get_conclusion(&self) -> Option<ServiceDetectionConclusion> {
                 Some(ServiceDetectionConclusion {
-                    certainty: Certainty::Advertised,
+                    certainty: ServiceDetectionCertainty::Advertised,
                     service_name: String::from("test"),
                     service_version: None,
                 })

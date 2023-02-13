@@ -3,6 +3,7 @@ name = "bowbend_core"
 version = "0.1.0"
 authors = ["Stuart Small <stuart.alan.small@gmail.com>"]
 edition = "2021"
+publish = false
 
 [dependencies]
 async-stream = "0.3.4"

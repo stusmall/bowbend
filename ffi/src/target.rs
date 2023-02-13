@@ -2,7 +2,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use ::safer_ffi::prelude::*;
-use bowbend_core::target::Target as InternalTarget;
+use bowbend_core::Target as InternalTarget;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use safer_ffi::{char_p::char_p_boxed, slice::slice_ref, string::str_ref};
 
