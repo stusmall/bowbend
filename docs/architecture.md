@@ -11,7 +11,7 @@ process of producing header files this C API.
 
 This is consumed by the 3rd and final layer, the language specific SDKs.  This is the only part of the project that is 
 planned to have a stable API.  The most common route here will be to wrap the FFI crate with native, idiomatic, stable 
-bindings that users can consume.  The two exceptions that might be made in the future are for the C and Rust SDKs.  
-They may end up re-exporting large amount of types from the ffi and bowbend_core crates respectively.  This 
-separation still exists in these cases so can be free to break APIs in lower levels and add compatiblity shims to 
-the Rust/C SDKs as needed.
+bindings that users can consume.  The one exception that exists today is the Rusk SDK.  It would end up re-exporting a
+large amount of code from bowbend_core. This separation still exists in so lower layers can be free to break APIs in 
+and add compatibility shims to the Rust SDKs as needed.  A similar approach over the ffi crate might be used if a C 
+SDK is ever added.

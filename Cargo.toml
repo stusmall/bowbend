@@ -3,8 +3,15 @@
 members = [
     "bowbend_core",
     "ffi",
-    "sdks/python",
     "xtask"
+]
+
+# Exclude all SDKs to prevent crate name collisions
+exclude = [
+    "sdks/python",
+    "sdks/rust",
+    # The rust integration test depends on the rust SDK by path.  This would pull it into the workspace.
+    "integration/rust"
 ]
 
 [profile.release]

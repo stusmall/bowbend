@@ -1,4 +1,3 @@
-//! Module to place any error handling related code
 use std::io;
 
 /// An error during the process of a portscan.  This covers all possible errors

@@ -1,0 +1,11 @@
+[package]
+name = "integration_test"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+
+[dependencies]
+bowbend = { path = "../../sdks/rust" }
+futures-util = "0.3"
+tokio = "1.25"

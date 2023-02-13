@@ -14,7 +14,6 @@ async def basic_ip_scan():
     builder = Builder()
     builder.set_ping(False)
     builder.set_port_list([80, 1337])
-    builder.set_max_in_flight(10)
     builder.add_target(ipv4_target)
     scan = Scan(builder)
     result = await scan.next()
@@ -32,12 +31,12 @@ async def scan_with_icmp():
         elif isinstance(result, ScanFinished):
             raise Exception("Stream finished too soon")
         elif isinstance(result, Report):
-            assert(isinstance(result.contents, ReportContents))
-            assert(result.contents.ping_result is not None)
+            assert (isinstance(result.contents, ReportContents))
+            assert (result.contents.ping_result is not None)
             if result.instance == ip_address("192.168.56.3"):
-                assert(result.contents.ping_result.ping_result_type == PingResultType.RECEIVED_REPLY)
+                assert (result.contents.ping_result.ping_result_type == PingResultType.RECEIVED_REPLY)
             elif result.instance == ip_address("192.168.56.4"):
-                assert(result.contents.ping_result.ping_result_type == PingResultType.TIMEOUT)
+                assert (result.contents.ping_result.ping_result_type == PingResultType.TIMEOUT)
             else:
                 raise Exception("This doesn't match either target")
         else:
@@ -59,7 +58,6 @@ async def scan_with_service_detection():
     builder = Builder()
     builder.set_run_service_detection(True)
     builder.set_port_list([80])
-    # builder.set_tracing(True)
     builder.add_target(Target("web"))
     scan = Scan(builder)
     result = await scan.next()
@@ -67,6 +65,7 @@ async def scan_with_service_detection():
 
     assert type(await scan.next()) is ScanFinished
     print("Scan with service detection passed")
+
 
 async def main():
     logging.basicConfig(level=logging.DEBUG)

@@ -1,6 +1,8 @@
 //! This module contains everything we need to describe the results of a
 //! portscan.
 
+use std::collections::HashMap;
+
 use crate::{
     err::PortscanErr,
     icmp::PingResult,
@@ -34,7 +36,7 @@ pub struct ReportContents {
     pub icmp: Option<PingResult>,
     /// This will be none if we never made it to the point of running the
     /// portscan, for example if we pinged and it timed out
-    pub ports: Option<Vec<PortReport>>,
+    pub ports: Option<HashMap<u16, PortReport>>,
 }
 
 /// The status of an individual port that was scanned.
@@ -49,7 +51,7 @@ pub struct PortReport {
 }
 
 /// The state of the port scanned
-#[derive(PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum PortStatus {
     /// The port is ready to open and establish and connection.  We either fully
     /// established one or

@@ -8,8 +8,8 @@ use tracing::instrument;
 
 use crate::service_detection::{
     framework::{
-        Certainty, PortHint, PortToAnalyze, Rule, RuleClosure, RuleError, RuleId, RuleLoudness,
-        RuleResult, RuleResults, ServiceDetectionConclusion,
+        PortHint, PortToAnalyze, Rule, RuleClosure, RuleError, RuleId, RuleLoudness, RuleResult,
+        RuleResults, ServiceDetectionCertainty, ServiceDetectionConclusion,
     },
     rules::http::basic_http_probe::{BasicHttpGetProbe, BasicHttpGetProbeResult},
 };
@@ -56,7 +56,7 @@ impl Rule for NginxDetectionRule {
                         if let Ok((_, parsed)) = parse_nginx_server_header(&contents) {
                             NginxDetectionRuleResult {
                                 conclusion: Some(ServiceDetectionConclusion {
-                                    certainty: Certainty::Advertised,
+                                    certainty: ServiceDetectionCertainty::Advertised,
                                     service_name: "nginx HTTP server".to_string(),
                                     service_version: Some(parsed.version.to_owned()),
                                 }),

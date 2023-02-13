@@ -8,10 +8,21 @@ pub(crate) fn format() {
 }
 
 fn format_rust() {
-    println!("Running cargo fmt");
+    println!("Running cargo fmt on core");
     let mut fmt_cmd = Command::new("cargo");
     fmt_cmd.current_dir(project_root());
     fmt_cmd.args(["fmt", "--check"]);
+    check_command_print_stdout!(fmt_cmd, "Failed to run cargo fmt: {}");
+
+    println!("Running cargo fmt on rust integration test");
+    let mut fmt_cmd = Command::new("cargo");
+    fmt_cmd.current_dir(project_root());
+    fmt_cmd.args([
+        "fmt",
+        "--check",
+        "--manifest-path",
+        "integration/rust/Cargo.toml",
+    ]);
     check_command_print_stdout!(fmt_cmd, "Failed to run cargo fmt: {}");
 }
 
