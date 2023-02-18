@@ -113,7 +113,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: python-release-wheels
       - name: Install Python format tools
@@ -140,7 +140,7 @@ jobs:
       - name: Run vagrant up
         run: vagrant up --provider virtualbox
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: python-release-wheels
       - name: Run python integration test
@@ -165,7 +165,7 @@ jobs:
       - name: Run vagrant up
         run: vagrant up --provider virtualbox
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: python-debug-wheels
       - name: Run python integration test
@@ -196,7 +196,7 @@ jobs:
           override: true
           components: clippy
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: python-release-wheels
       - name: Install Python lint tools
@@ -230,7 +230,7 @@ jobs:
           override: true
           components: rustfmt
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: python-release-wheels
       - name: Install Python format tools
