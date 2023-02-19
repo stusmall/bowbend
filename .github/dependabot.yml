@@ -7,6 +7,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(ci): "
+    ignore:
+      # We want to leave versions of rust as is.  This action is a little unique in that its version is used for the
+      # rust version
+      - dependency-name: "dtolnay/rust-toolchain"
 
   # check the core workspace
   - package-ecosystem: "cargo"
