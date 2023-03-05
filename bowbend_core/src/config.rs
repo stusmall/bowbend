@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::target::Target;
+use crate::{target::Target, ScanType};
 
 /// A [builder pattern](https://en.wikipedia.org/wiki/Builder_pattern) implementation to set all
 /// parameters for a scan.
@@ -8,6 +8,7 @@ use crate::target::Target;
 pub struct ConfigBuilder {
     pub(crate) targets: Vec<Target>,
     pub(crate) ports: Vec<u16>,
+    pub(crate) scan_type: ScanType,
     pub(crate) run_service_detection: bool,
     pub(crate) ping: bool,
     pub(crate) tracing: bool,
@@ -22,6 +23,7 @@ impl Default for ConfigBuilder {
         Self {
             targets: vec![],
             ports: vec![80],
+            scan_type: ScanType::FullOpen,
             run_service_detection: false,
             ping: false,
             tracing: false,
@@ -43,6 +45,9 @@ impl ConfigBuilder {
         self.ports = ports;
     }
 
+    pub fn set_scan_type(&mut self, scan_type: ScanType) {
+        self.scan_type = scan_type;
+    }
     /// Set if we should attempt to fingerprint services on open ports.
     pub fn set_run_service_detection(&mut self, run_service_detection: bool) {
         self.run_service_detection = run_service_detection;

@@ -2,16 +2,15 @@ use std::sync::Arc;
 
 use futures::{stream, Stream, StreamExt};
 use tokio::sync::Semaphore;
-use tracing::trace;
 
 use crate::{
     icmp::{icmp_sweep, skip_icmp},
     logging::setup_tracing,
     service_detection::run_service_detection_on_target,
     target::targets_to_instance_stream,
-    tcp::full_open::full_open_port_scan,
+    tcp::{full_open::full_open_port_scan, syn_scan::syn_scan},
     utils::throttle_stream::throttle_stream,
-    ConfigBuilder, PortscanErr, Report,
+    ConfigBuilder, PortscanErr, Report, ScanType,
 };
 
 /// The entry point to kick off a batch of portscans.  It will return a stream
@@ -36,15 +35,24 @@ pub async fn start_scan(
     } else {
         skip_icmp(throttled_stream).await?.boxed()
     };
-    trace!("We have ping results back");
-    let results = full_open_port_scan(
-        Box::pin(ping_result_stream),
-        config_builder.ports,
-        semaphore.clone(),
-        config_builder.throttle_range.clone(),
-    )
-    .await;
-    trace!("We finished a full open port scan");
+    let results = match config_builder.scan_type {
+        ScanType::SynScan => syn_scan(
+            Box::pin(ping_result_stream),
+            config_builder.ports,
+            semaphore.clone(),
+            config_builder.throttle_range.clone(),
+        )
+        .await
+        .boxed(),
+        ScanType::FullOpen => full_open_port_scan(
+            Box::pin(ping_result_stream),
+            config_builder.ports,
+            semaphore.clone(),
+            config_builder.throttle_range.clone(),
+        )
+        .await
+        .boxed(),
+    };
 
     let results = if config_builder.run_service_detection {
         run_service_detection_on_target(results, semaphore.clone(), config_builder.throttle_range)

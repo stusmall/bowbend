@@ -13,6 +13,7 @@ pub use crate::{
     icmp::{PingResult, PingResultType},
     report::{PortReport, PortStatus, Report, ReportContents},
     scan::start_scan,
+    scan_type::ScanType,
     service_detection::framework::{ServiceDetectionCertainty, ServiceDetectionConclusion},
     target::{Target, TargetInstance},
 };
@@ -23,6 +24,7 @@ mod icmp;
 mod logging;
 mod report;
 mod scan;
+mod scan_type;
 mod service_detection;
 mod target;
 mod tcp;

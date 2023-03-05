@@ -3,3 +3,4 @@
 //! host.
 
 pub mod full_open;
+pub mod syn_scan;

@@ -16,15 +16,11 @@ use socket2::{Domain, Protocol, Socket, Type};
 use tokio::{sync::Semaphore, time::sleep};
 use tracing::{debug, error, instrument};
 
-use crate::{
-    icmp::{
-        icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
-        icmp_writer::{send_ping, PingSentSummary},
-    },
-    stream::iter,
-    target::TargetInstance,
-    PortscanErr,
-};
+use crate::{icmp::{
+    icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
+    icmp_writer::{send_ping, PingSentSummary},
+}, stream::iter, target::TargetInstance, PortscanErr, Target};
+use crate::utils::reactor::Reactor;
 
 pub(crate) mod icmp_listener;
 pub(crate) mod icmp_writer;
@@ -130,12 +126,17 @@ pub(crate) async fn icmp_sweep(
     let merged_stream = combine(icmpv4_listener, icmpv6_listener);
     Ok(combine(iter(errors), await_results(targets, merged_stream)))
 }
+// Index is IpAddr
+// Context is TargetInstance
+// Result is Option<PingResult>
 
 #[instrument(skip(targets, icmp_listener))]
 fn await_results(
     mut targets: HashMap<IpAddr, (TargetInstance, PingSentSummary)>,
     mut icmp_listener: impl Stream<Item = io::Result<ReceivedIcmpPacket>> + Unpin,
 ) -> impl Stream<Item = (TargetInstance, Option<PingResult>)> {
+
+    //Reactor::<IpAddr, TargetInstance, Option<PingResult>>::new();
     stream! {
         let mut ping_timeout = sleep(Duration::from_millis(500)).boxed().fuse();
         let mut icmp_stream_future = icmp_listener.next().fuse();
