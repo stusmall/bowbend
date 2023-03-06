@@ -8,4 +8,4 @@ publish = false
 [dependencies]
 bowbend = { path = "../../sdks/rust" }
 futures-util = "0.3"
-tokio = "1.25"
+tokio = "1.26"
