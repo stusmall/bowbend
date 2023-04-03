@@ -9,7 +9,7 @@ publish = false
 async-stream = "0.3.4"
 byteorder = "1.4"
 futures = "0.3"
-ipnet = "2.3"
+ipnet = "2.7"
 mio = { version="0.8", features=["os-ext"] }
 nom = "7.1"
 openssl = { version = "0.10", features = ["vendored"] }
