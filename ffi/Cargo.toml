@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ipnet = "2.7"
+ipnet = "2.8"
 futures = "0.3"
 bowbend_core = { path = "../bowbend_core" }
 safer-ffi = { version = "0.0.10", features = ["proc_macros"] }
