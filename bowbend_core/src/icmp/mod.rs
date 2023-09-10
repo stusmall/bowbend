@@ -20,7 +20,6 @@ use crate::{icmp::{
     icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
     icmp_writer::{send_ping, PingSentSummary},
 }, stream::iter, target::TargetInstance, PortscanErr, Target};
-use crate::utils::reactor::Reactor;
 
 pub(crate) mod icmp_listener;
 pub(crate) mod icmp_writer;
