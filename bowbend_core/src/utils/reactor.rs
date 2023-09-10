@@ -1,13 +1,17 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, task::Poll};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, sync::Arc, task::Poll, time::Duration,
+};
 
-use futures::{stream::BoxStream, Stream, StreamExt, stream, FutureExt, TryFutureExt};
-use futures::stream::select;
-use pin_project::pin_project;
-use tokio::time::{Instant, Interval, interval};
-use tracing::{debug, error, trace, warn};
+use futures::{
+    stream,
+    stream::{select, BoxStream},
+    FutureExt, Stream, StreamExt, TryFutureExt,
+};
 use linked_hash_map::LinkedHashMap;
+use pin_project::pin_project;
+use tokio::time::{interval, Instant, Interval, MissedTickBehavior};
+use tracing::{debug, error, trace, warn};
+
 use crate::logging::setup_tracing;
 
 //TODO: remove debug
@@ -20,55 +24,56 @@ pub(crate) trait Context: Debug + Send {
 }
 
 //TODO: remove debug
-pub(crate) trait Result: Debug + Send {
+pub(crate) trait Result: Debug + Send {}
 
-}
-
-pub(crate) trait Index: Clone + Debug + Eq + Hash + PartialEq {
-
-}
+pub(crate) trait Index: Clone + Debug + Eq + Hash + PartialEq {}
 
 enum Item<I, C, R> {
     Context((I, C)),
     Result((I, R)),
 }
-
+pub(crate) fn reactor<I: Index, C: Context> (context_stream: impl Stream<Item = (I, C)> + 'static + Send,
+                      results_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
+                      timeout: Duration){
+    unimplemented!()
+}
 #[pin_project]
-pub(crate) struct Reactor<I: Index, C: Context> {
+pub(crate) struct InnerReactor<I: Index, C: Context> {
     waiting_for_match: LinkedHashMap<I, C>,
     out_of_order_results: HashMap<I, C::Result>,
+    // TODO: try and make this generic rather than boxed
     #[pin]
-    input: BoxStream<'static, Item<I, C, C::Result>>, //TODO: try and make this generic rather than boxed
+    input: BoxStream<'static, Item<I, C, C::Result>>,
     #[pin]
     gc_interval: Interval,
-    final_pass: bool
+    final_pass: bool,
 }
 
-impl<I: Index, C: Context>
-    Reactor<I, C>
-{
+impl<I: Index, C: Context> InnerReactor<I, C> {
     pub fn new(
         context_stream: impl Stream<Item = (I, C)> + 'static + Send,
         results_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
-        timeout: Duration
+        timeout: Duration,
     ) -> Self {
+        let input = select(
+            context_stream.map(|(i, c)| Item::Context((i, c))),
+            results_stream.map(|(i, r)| Item::Result((i, r))),
+        );
 
-        let input = select(context_stream.map(|(i, c)| Item::Context((i, c))),
-        results_stream.map(|(i, r)| Item::Result((i, r))));
-
+        let mut gc_interval = interval(timeout);
+        gc_interval.reset();
+        gc_interval.set_missed_tick_behavior(MissedTickBehavior::Burst);
         Self {
             waiting_for_match: Default::default(),
             out_of_order_results: Default::default(),
             input: input.boxed(),
-            gc_interval: interval(timeout),
-            final_pass: false
+            gc_interval,
+            final_pass: false,
         }
     }
 }
 
-impl<I: Index, C: Context> Stream
-    for Reactor<I, C>
-{
+impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
     type Item = Vec<(C, C::Result)>;
 
     #[tracing::instrument(level = "trace", ret, skip(self, cx))]
@@ -82,7 +87,8 @@ impl<I: Index, C: Context> Stream
             loop {
                 match projection.input.as_mut().poll_next(cx) {
                     Poll::Ready(Some(Item::Context((index, context)))) => {
-                        // We have an item from the context stream.  Let's reset the GC timer, try and match it up, then do a GC pass
+                        // We have an item from the context stream.  Let's reset the GC timer, try
+                        // and match it up, then do a GC pass
                         projection.gc_interval.reset();
                         if let Some(result) = projection.out_of_order_results.remove(&index) {
                             warn!("We found a match for an out of order response!  The system will continue to work but this is a strange situation");
@@ -94,7 +100,8 @@ impl<I: Index, C: Context> Stream
                         }
                     }
                     Poll::Ready(Some(Item::Result((index, result)))) => {
-                        // We have an item from the result stream.  Let's reset the GC timer, try to match it up then do a GC pass
+                        // We have an item from the result stream.  Let's reset the GC timer, try to
+                        // match it up then do a GC pass
                         projection.gc_interval.reset();
                         if let Some(context) = projection.waiting_for_match.remove(&index) {
                             trace!("Found a waiting match");
@@ -106,27 +113,31 @@ impl<I: Index, C: Context> Stream
                         }
                     }
                     Poll::Ready(None) => {
-                        // Both our streams have finished.  This is the only case where we should skip reseting the timer.  Let it expire one more time and then we are finished.
+                        // Both our streams have finished.  This is the only case where we should
+                        // skip reseting the timer.  Let it expire one more time and then we are
+                        // finished.
                         debug!("Both streams have finished");
                         *projection.final_pass = true;
                         break;
-                    },
+                    }
                     Poll::Pending => {
                         trace!("Pending");
-                        // The streams are pending. This could have been because of the timer or even
-                        // an event outside this module.  Either way, reset the timer and do a GC pass.
+                        // The streams are pending. This could have been because of the timer or
+                        // even an event outside this module.  Either way,
+                        // reset the timer and do a GC pass.
                         projection.gc_interval.reset();
                         break;
-                    },
+                    }
                 }
-            };
+            }
         }
 
         let mut to_ret = item.map(|x| vec![x]).unwrap_or_default();
 
         // Do a GC pass.
-        // Any items started before this Instant have timed out.  Remove them from our "waiting" list and return expired entries
-        //TODO: if final it should return all entries in waiting_for_match
+        // Any items started before this Instant have timed out.  Remove them from our
+        // "waiting" list and return expired entries TODO: if final it should
+        // return all entries in waiting_for_match
         let trim_instant = Instant::now() - projection.gc_interval.period();
 
         for entry in projection.waiting_for_match.entries() {
@@ -138,13 +149,11 @@ impl<I: Index, C: Context> Stream
         }
 
         if *projection.final_pass {
-
             if to_ret.is_empty() {
                 Poll::Ready(None)
             } else {
-                //TODO: There must be a better way to do this.  We have something to return on this
-                // tick but want poll called one more time almost immediately to return Ready(None)
-                *projection.gc_interval = interval(Duration::from_millis(1));
+                // We are at the end of it all.  Poll one more time so we can get a None
+                cx.waker().wake_by_ref();
                 Poll::Ready(Some(to_ret))
             }
         } else {
@@ -154,24 +163,23 @@ impl<I: Index, C: Context> Stream
                 Poll::Ready(Some(to_ret))
             }
         }
-
     }
 }
+mod test {
+    use super::*;
+    use tokio_test::stream_mock::StreamMockBuilder;
 
-#[tokio::test]
-async fn basic_reactor_test(){
-    setup_tracing();
     #[derive(Debug)]
     struct TestContext {
         ctx: String,
-        started: Instant
+        started: Instant,
     }
 
     impl TestContext {
         fn new(s: &str) -> Self {
             TestContext {
                 ctx: s.to_string(),
-                started: Instant::now()
+                started: Instant::now(),
             }
         }
     }
@@ -188,131 +196,59 @@ async fn basic_reactor_test(){
         }
     }
 
-    impl Index for & str {
+    impl Index for &str {}
 
+    impl Result for String {}
+
+
+    #[tokio::test]
+    async fn basic_reactor_test() {
+        let context_stream_mock = StreamMockBuilder::new()
+            .next(("target1", TestContext::new("context1")))
+            .next(("target2", TestContext::new("context2")))
+            .next(("target3", TestContext::new("context3")))
+            .build();
+
+
+        let result_stream_mock = StreamMockBuilder::new()
+            .next(("target1", "result1".to_string()))
+            .next(("target2", "result2".to_string()))
+            .next(("target3", "result3".to_string()))
+            .build();
+        let reactor = InnerReactor::new(
+            context_stream_mock,
+            result_stream_mock,
+            Duration::from_millis(500),
+        );
+        let results: Vec<(TestContext, String)> = reactor.map(stream::iter).flatten().collect().await;
+        assert_eq!(results.get(0).unwrap().1, "result1");
+        assert_eq!(results.get(1).unwrap().1, "result2");
+        assert_eq!(results.get(2).unwrap().1, "result3");
     }
 
-    impl Result for String{}
+    #[tokio::test]
+    async fn basic_timeout() {
+        setup_tracing();
+        let context_stream_mock = StreamMockBuilder::new()
+            .next(("target1", TestContext::new("context1")))
+            .next(("target2", TestContext::new("context2")))
+            .build();
 
-    let context_stream = vec![
-        ("target1", TestContext::new("context1")),
-        ("target2", TestContext::new("context2")),
-        ("target3", TestContext::new("context3")),
-    ];
+        let result_stream_mock = StreamMockBuilder::new()
+            .next(("target1", "result1".to_string()))
+            .wait(Duration::from_secs(10))
+            .next(("target2"
+                   , "result2".to_string()))
+            .build();
+        let reactor = InnerReactor::new(
+            context_stream_mock,
+            result_stream_mock,
+            Duration::from_millis(500),
+        );
+        let results: Vec<(TestContext, String)> = reactor.map(stream::iter).flatten().collect().await;
+        assert_eq!(results.get(0).unwrap().1, "result1");
+        assert_eq!(results.get(1).unwrap().1, "target2 timeout");
+    }
 
-    let result_stream = vec![
-        ("target1", "result1".to_string()),
-        ("target2", "result2".to_string()),
-        ("target3", "result3".to_string()),
-    ];
-    let reactor = Reactor::new(stream::iter(context_stream), stream::iter(result_stream), Duration::from_millis(500));
-    let v: Vec<_> = reactor.collect().await;
-    println!("{:#?}", v);
-    panic!();
+
 }
-
-// impl<I: Index, C: Context, R: Result>  InnerReactor<I, C, R> {
-//
-//     fn handle_input(mut self: Pin<&mut Self>, item: Item<I, C, R>) -> Option<Vec<(C, R)>>{
-//         match item {
-//             Item::Context((index, context)) => {
-//                 if let Some(result) = self.out_of_order_results.remove(&index){
-//                     return Some(vec![(context, result)]);
-//                 }
-//             }
-//             Item::Result((index, result)) => {
-//                 if let Some(context) = self.waiting_for_match.remove(&index) {
-//                     return Some(vec![(context, result)])
-//                 }
-//             }
-//         }
-//         unimplemented!()
-//
-//     }
-//
-//     fn internal_poll(mut self: Pin<&mut Self>,
-//                      cx: &mut std::task::Context<'_>,) -> Option<Poll<Option<(C, R)>>> {
-//         match self.input.as_mut().poll_next(cx) {
-//             Poll::Ready(Some(Item::Result((index, result)))) => {
-//                 match self.waiting_for_match.remove(&index) {
-//                     Some(context) => {
-//                         debug!("We got a match!  Yielding");
-//                         Some(Poll::Ready(Some((context, result))))
-//                     }
-//                     None => {
-//                         debug!(
-//                             "We have an item with an unknown key: {:?}.  Holding on to it",
-//                             index
-//                         );
-//                         if let Some(_) = self.out_of_order_results.insert(index, result){
-//                             warn!("non unique index")
-//                         }
-//                         None
-//                     }
-//                 }
-//             }
-//             Poll::Ready(Some(Item::Context((index, context)))) => {
-//                 if let Some(result) = self.out_of_order_results.remove(&index) {
-//                     debug!("We matched with an earlier out of order result for {:?}", index);
-//                     return Some(Poll::Ready(Some((context, result))))
-//                 }
-//                 if let Some(_) = self.waiting_for_match.insert(index, context) {
-//                     error!("Inserted a new value and it replaced a previously used value.  This is a sign that the index was non-unique");
-//                 }
-//                 None
-//             }
-//             Poll::Ready(Some(ScanForTimeouts)) => {
-//                 //TODO: Scan waiting entries
-//                 None
-//             }
-//             Poll::Ready(None) => {
-//                 Some(Poll::Ready(None))
-//             }
-//             Poll::Pending => {
-//                 Some(Poll::Pending)
-//             }
-//         }
-//     }
-// }
-
-
-
-// #[tokio::test]
-// async fn basic_reactor_test(){
-//     let context_stream = vec![
-//         ("target1", "context1"),
-//         ("target2", "context2"),
-//         ("target3", "context3"),
-//     ];
-//
-//     let result_stream = vec![
-//         ("target1", "result1"),
-//         ("target2", "result2"),
-//         ("target3", "result3"),
-//     ];
-//
-//     let reactor = Reactor::new(stream::iter(context_stream), stream::iter(result_stream));
-//     let v: Vec<(&str, &str)> = reactor.collect().await;
-//     assert_eq!(v, vec![("context1", "result1"),("context2", "result2"),("context3", "result3"),]);
-// }
-//
-// #[tokio::test]
-// async fn out_of_order() {
-//     let context_stream = vec![
-//         ("target1", 1u32),
-//         ("target2", 2),
-//         ("target3", 3),
-//     ];
-//
-//     let result_stream = vec![
-//         ("target3", "result3"),
-//         ("target2", "result2"),
-//         ("target1", "result1"),
-//     ];
-//
-//     let reactor = Reactor::new(stream::iter(context_stream), stream::iter(result_stream));
-//     let matched: Vec<_> = reactor.map(|(context, result)| {
-//         (&format!("result{}", context)) == result
-//     }).collect().await;
-//     assert_eq!(matched, vec![true, true, true])
-// }

@@ -16,10 +16,15 @@ use socket2::{Domain, Protocol, Socket, Type};
 use tokio::{sync::Semaphore, time::sleep};
 use tracing::{debug, error, instrument};
 
-use crate::{icmp::{
-    icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
-    icmp_writer::{send_ping, PingSentSummary},
-}, stream::iter, target::TargetInstance, PortscanErr, Target};
+use crate::{
+    icmp::{
+        icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
+        icmp_writer::{send_ping, PingSentSummary},
+    },
+    stream::iter,
+    target::TargetInstance,
+    PortscanErr, Target,
+};
 
 pub(crate) mod icmp_listener;
 pub(crate) mod icmp_writer;
@@ -134,7 +139,6 @@ fn await_results(
     mut targets: HashMap<IpAddr, (TargetInstance, PingSentSummary)>,
     mut icmp_listener: impl Stream<Item = io::Result<ReceivedIcmpPacket>> + Unpin,
 ) -> impl Stream<Item = (TargetInstance, Option<PingResult>)> {
-
     //Reactor::<IpAddr, TargetInstance, Option<PingResult>>::new();
     stream! {
         let mut ping_timeout = sleep(Duration::from_millis(500)).boxed().fuse();
