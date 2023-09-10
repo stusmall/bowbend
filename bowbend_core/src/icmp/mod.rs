@@ -23,7 +23,7 @@ use crate::{
     },
     stream::iter,
     target::TargetInstance,
-    PortscanErr, Target,
+    PortscanErr,
 };
 
 pub(crate) mod icmp_listener;

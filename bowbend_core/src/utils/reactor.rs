@@ -1,16 +1,14 @@
-use std::{
-    collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, sync::Arc, task::Poll, time::Duration,
-};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, task::Poll, time::Duration};
 
 use futures::{
     stream,
     stream::{select, BoxStream},
-    FutureExt, Stream, StreamExt, TryFutureExt,
+    Stream, StreamExt,
 };
 use linked_hash_map::LinkedHashMap;
 use pin_project::pin_project;
-use tokio::time::{interval, Instant, Interval, MissedTickBehavior};
-use tracing::{debug, error, trace, warn};
+use tokio::time::{interval, Instant, Interval};
+use tracing::{debug, trace, warn};
 
 use crate::logging::setup_tracing;
 
@@ -32,18 +30,22 @@ enum Item<I, C, R> {
     Context((I, C)),
     Result((I, R)),
 }
-pub(crate) fn reactor<I: Index, C: Context> (context_stream: impl Stream<Item = (I, C)> + 'static + Send,
-                      results_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
-                      timeout: Duration){
-    unimplemented!()
+pub(crate) fn reactor<I: Index, C: Context>(
+    context_stream: impl Stream<Item = (I, C)> + 'static + Send,
+    result_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
+    timeout: Duration,
+) -> impl Stream<Item = (C, C::Result)> {
+    let reactor = InnerReactor::new(context_stream, result_stream, timeout);
+    reactor.map(stream::iter).flatten()
 }
 #[pin_project]
-pub(crate) struct InnerReactor<I: Index, C: Context> {
+struct InnerReactor<I: Index, C: Context> {
     waiting_for_match: LinkedHashMap<I, C>,
     out_of_order_results: HashMap<I, C::Result>,
     // TODO: try and make this generic rather than boxed
     #[pin]
     input: BoxStream<'static, Item<I, C, C::Result>>,
+    timeout: Duration,
     #[pin]
     gc_interval: Interval,
     final_pass: bool,
@@ -60,13 +62,12 @@ impl<I: Index, C: Context> InnerReactor<I, C> {
             results_stream.map(|(i, r)| Item::Result((i, r))),
         );
 
-        let mut gc_interval = interval(timeout);
-        gc_interval.reset();
-        gc_interval.set_missed_tick_behavior(MissedTickBehavior::Burst);
+        let gc_interval = interval(timeout / 5);
         Self {
             waiting_for_match: Default::default(),
             out_of_order_results: Default::default(),
             input: input.boxed(),
+            timeout,
             gc_interval,
             final_pass: false,
         }
@@ -83,6 +84,12 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
     ) -> Poll<Option<Self::Item>> {
         let mut projection = self.as_mut().project();
         let mut item = None;
+        loop {
+            match projection.gc_interval.poll_tick(cx) {
+                Poll::Ready(_) => {}
+                Poll::Pending => break,
+            }
+        }
         if *projection.final_pass == false {
             loop {
                 match projection.input.as_mut().poll_next(cx) {
@@ -138,8 +145,7 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
         // Any items started before this Instant have timed out.  Remove them from our
         // "waiting" list and return expired entries TODO: if final it should
         // return all entries in waiting_for_match
-        let trim_instant = Instant::now() - projection.gc_interval.period();
-
+        let trim_instant = Instant::now() - *projection.timeout;
         for entry in projection.waiting_for_match.entries() {
             if trim_instant > entry.get().start_time() {
                 let context = entry.remove();
@@ -166,8 +172,9 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
     }
 }
 mod test {
-    use super::*;
     use tokio_test::stream_mock::StreamMockBuilder;
+
+    use super::*;
 
     #[derive(Debug)]
     struct TestContext {
@@ -200,7 +207,6 @@ mod test {
 
     impl Result for String {}
 
-
     #[tokio::test]
     async fn basic_reactor_test() {
         let context_stream_mock = StreamMockBuilder::new()
@@ -209,18 +215,12 @@ mod test {
             .next(("target3", TestContext::new("context3")))
             .build();
 
-
         let result_stream_mock = StreamMockBuilder::new()
             .next(("target1", "result1".to_string()))
             .next(("target2", "result2".to_string()))
             .next(("target3", "result3".to_string()))
             .build();
-        let reactor = InnerReactor::new(
-            context_stream_mock,
-            result_stream_mock,
-            Duration::from_millis(500),
-        );
-        let results: Vec<(TestContext, String)> = reactor.map(stream::iter).flatten().collect().await;
+        let results: Vec<(TestContext, String)> = reactor(context_stream_mock, result_stream_mock, Duration::from_millis(500)).collect().await;
         assert_eq!(results.get(0).unwrap().1, "result1");
         assert_eq!(results.get(1).unwrap().1, "result2");
         assert_eq!(results.get(2).unwrap().1, "result3");
@@ -236,19 +236,17 @@ mod test {
 
         let result_stream_mock = StreamMockBuilder::new()
             .next(("target1", "result1".to_string()))
-            .wait(Duration::from_secs(10))
-            .next(("target2"
-                   , "result2".to_string()))
+            .wait(Duration::from_secs(2))
+            .next(("target2", "result2".to_string()))
             .build();
-        let reactor = InnerReactor::new(
+        let results: Vec<(TestContext, String)> = reactor(
             context_stream_mock,
             result_stream_mock,
             Duration::from_millis(500),
-        );
-        let results: Vec<(TestContext, String)> = reactor.map(stream::iter).flatten().collect().await;
+        )
+        .collect()
+        .await;
         assert_eq!(results.get(0).unwrap().1, "result1");
-        assert_eq!(results.get(1).unwrap().1, "target2 timeout");
+        assert_eq!(results.get(1).unwrap().1, "context2 timeout");
     }
-
-
 }
