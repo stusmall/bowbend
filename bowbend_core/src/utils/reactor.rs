@@ -171,6 +171,7 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
         }
     }
 }
+#[cfg(test)]
 mod test {
     use tokio_test::stream_mock::StreamMockBuilder;
 
@@ -220,7 +221,13 @@ mod test {
             .next(("target2", "result2".to_string()))
             .next(("target3", "result3".to_string()))
             .build();
-        let results: Vec<(TestContext, String)> = reactor(context_stream_mock, result_stream_mock, Duration::from_millis(500)).collect().await;
+        let results: Vec<(TestContext, String)> = reactor(
+            context_stream_mock,
+            result_stream_mock,
+            Duration::from_millis(500),
+        )
+        .collect()
+        .await;
         assert_eq!(results.get(0).unwrap().1, "result1");
         assert_eq!(results.get(1).unwrap().1, "result2");
         assert_eq!(results.get(2).unwrap().1, "result3");
@@ -236,7 +243,7 @@ mod test {
 
         let result_stream_mock = StreamMockBuilder::new()
             .next(("target1", "result1".to_string()))
-            .wait(Duration::from_secs(2))
+            .wait(Duration::from_secs(10))
             .next(("target2", "result2".to_string()))
             .build();
         let results: Vec<(TestContext, String)> = reactor(
