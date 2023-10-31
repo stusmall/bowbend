@@ -79,14 +79,17 @@ impl From<InternalTarget> for Target {
 /// Construct a new `Target` containing an IPv4 address.  If the input
 /// slice is anything besides 4 bytes then it will return an error result.
 #[ffi_export]
-pub fn new_ip_v4_address(input: slice_ref<u8>) -> FfiResult<Target> {
+pub fn new_ip_v4_address(input: slice_ref<'_, u8>) -> FfiResult<Target> {
     if input.len() == 4 {
         FfiResult {
             status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(Target {
-                target_type: TargetType::IPv4,
-                contents: safer_ffi::Vec::from(input.to_vec()),
-            })),
+            contents: Some(
+                Box::new(Target {
+                    target_type: TargetType::IPv4,
+                    contents: safer_ffi::Vec::from(input.to_vec()),
+                })
+                .into(),
+            ),
         }
     } else {
         FfiResult {
@@ -99,14 +102,17 @@ pub fn new_ip_v4_address(input: slice_ref<u8>) -> FfiResult<Target> {
 /// Construct a new `Target` containing an IPv6 address.  If the input
 /// slice is anything besides 16 bytes then it will return an error result.
 #[ffi_export]
-pub fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
+pub fn new_ip_v6_address(input: slice_ref<'_, u8>) -> FfiResult<Target> {
     if input.len() == 16 {
         FfiResult {
             status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(Target {
-                target_type: TargetType::IPv6,
-                contents: safer_ffi::Vec::from(input.to_vec()),
-            })),
+            contents: Some(
+                Box::new(Target {
+                    target_type: TargetType::IPv6,
+                    contents: safer_ffi::Vec::from(input.to_vec()),
+                })
+                .into(),
+            ),
         }
     } else {
         FfiResult {
@@ -118,16 +124,19 @@ pub fn new_ip_v6_address(input: slice_ref<u8>) -> FfiResult<Target> {
 
 /// Construct a new `Target` containing a CIDR notated IPv4 network.
 #[ffi_export]
-pub fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
+pub fn new_ip_v4_network(address: slice_ref<'_, u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 4 && prefix <= 32 {
         let input =
             safer_ffi::Vec::from(vec![address[0], address[1], address[2], address[3], prefix]);
         FfiResult {
             status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(Target {
-                target_type: TargetType::IPv4Network,
-                contents: input,
-            })),
+            contents: Some(
+                Box::new(Target {
+                    target_type: TargetType::IPv4Network,
+                    contents: input,
+                })
+                .into(),
+            ),
         }
     } else {
         FfiResult {
@@ -139,7 +148,7 @@ pub fn new_ip_v4_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target
 
 /// Construct a new `Target` containing a CIDR notated IPv6 network.
 #[ffi_export]
-pub fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target> {
+pub fn new_ip_v6_network(address: slice_ref<'_, u8>, prefix: u8) -> FfiResult<Target> {
     if address.len() == 16 && prefix <= 128 {
         let mut buffer = address.to_vec();
         buffer.push(prefix);
@@ -154,17 +163,20 @@ pub fn new_ip_v6_network(address: slice_ref<u8>, prefix: u8) -> FfiResult<Target
 
 /// Construct a new `Target` containing a hostname.
 #[ffi_export]
-pub fn new_hostname(hostname: str_ref) -> FfiResult<Target> {
+pub fn new_hostname(hostname: str_ref<'_>) -> FfiResult<Target> {
     // We are pretty liberal about what we are willing to attempt a DNS look up on.
     // So we aren't really going to do anytime of validation on hostnames
     let bytes = hostname.as_bytes();
     if std::str::from_utf8(bytes).is_ok() {
         FfiResult {
             status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(Target {
-                target_type: TargetType::Hostname,
-                contents: safer_ffi::Vec::from(bytes.to_vec()),
-            })),
+            contents: Some(
+                Box::new(Target {
+                    target_type: TargetType::Hostname,
+                    contents: safer_ffi::Vec::from(bytes.to_vec()),
+                })
+                .into(),
+            ),
         }
     } else {
         FfiResult {

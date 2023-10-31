@@ -134,7 +134,7 @@ jobs:
       - name: Install vagrant plugins
         run: vagrant plugin install vagrant-hosts
       - name: Run vagrant up
-        run: vagrant up --provider virtualbox
+        run: VAGRANT_LOG=debug vagrant up --provider virtualbox
       - name: Fetch Python wheels
         uses: actions/download-artifact@v3
         with:
@@ -165,7 +165,7 @@ jobs:
       - name: Install vagrant plugins
         run: vagrant plugin install vagrant-hosts
       - name: Run vagrant up
-        run: vagrant up --provider virtualbox
+        run: VAGRANT_LOG=debug vagrant up --provider virtualbox
       - name: Fetch Python wheels
         uses: actions/download-artifact@v3
         with:
