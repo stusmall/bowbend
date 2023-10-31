@@ -42,7 +42,7 @@ impl<T> FfiResult<T> {
     pub fn ok(value: T) -> Self {
         FfiResult {
             status_code: StatusCodes::Ok,
-            contents: Some(repr_c::Box::new(value)),
+            contents: Some(Box::new(value).into()),
         }
     }
 

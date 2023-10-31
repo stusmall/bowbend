@@ -6,7 +6,7 @@ use bowbend_core::{
     PortReport as InternalPortReport, PortStatus as InternalPortStatus, PortscanErr,
     Report as InternalReport, ReportContents as InternalReportContents,
 };
-use safer_ffi::boxed::Box;
+use safer_ffi::boxed::Box as FfiBox;
 
 use crate::{
     ip::Ip,
@@ -24,7 +24,7 @@ pub struct Report {
     /// `instance`.  Other target types break up into multiple instances.
     /// There will be one report for each.
     pub target: Target,
-    pub instance: Option<Box<Ip>>,
+    pub instance: Option<FfiBox<Ip>>,
     pub contents: FfiResult<ReportContents>,
 }
 
@@ -44,16 +44,18 @@ impl From<InternalReport> for Report {
 
         Report {
             target: to_convert.target.into(),
-            instance: to_convert.instance.map(|x| Box::new(x.get_ip().into())),
+            instance: to_convert
+                .instance
+                .map(|x| Box::<Ip>::new(x.get_ip().into()).into()),
             contents,
         }
     }
 }
 
 #[derive_ReprC]
-#[ReprC::opaque]
+#[repr(opaque)]
 pub struct ReportContents {
-    icmp: Option<Box<PingResult>>,
+    icmp: Option<FfiBox<PingResult>>,
     ports: HashMap<u16, PortReport>,
 }
 
@@ -92,7 +94,9 @@ impl From<InternalReportContents> for ReportContents {
             })
             .unwrap_or_default();
 
-        let icmp = to_convert.icmp.map(|x| Box::new(x.into()));
+        let icmp = to_convert
+            .icmp
+            .map(|x| Box::<PingResult>::new(x.into()).into());
         ReportContents { icmp, ports }
     }
 }

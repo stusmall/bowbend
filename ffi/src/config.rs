@@ -16,7 +16,7 @@ use crate::{
 /// A [builder pattern](https://en.wikipedia.org/wiki/Builder_pattern) implementation to set all
 /// parameters for a scan
 #[derive_ReprC]
-#[ReprC::opaque]
+#[repr(opaque)]
 #[derive(Clone, Default)]
 pub struct ConfigBuilder {
     contents: InternalConfigBuilder,
@@ -25,7 +25,7 @@ pub struct ConfigBuilder {
 /// Constructor for [`ConfigBuilder`]
 #[ffi_export]
 pub fn new_builder() -> FfiBox<ConfigBuilder> {
-    FfiBox::new(ConfigBuilder::default())
+    Box::new(ConfigBuilder::default()).into()
 }
 
 /// Destructor for [`ConfigBuilder`].  This just takes ownership and drops it so
@@ -42,7 +42,7 @@ pub fn add_target(builder: &mut ConfigBuilder, target: &Target) {
 /// This replaces the list of ports to scan on each target.  This doesn't add to
 /// the list; it replaces it.
 #[ffi_export]
-pub fn set_port_list(builder: &mut ConfigBuilder, ports: slice_ref<u16>) {
+pub fn set_port_list(builder: &mut ConfigBuilder, ports: slice_ref<'_, u16>) {
     builder.contents.set_port_list(ports.to_vec())
 }
 

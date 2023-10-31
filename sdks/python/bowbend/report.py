@@ -108,8 +108,8 @@ class Report:
             elif len(ip_bytes) == 16:
                 self.instance = IPv6Address(ip_bytes)
             else:
-                raise Exception("Internal failure. An IP was returned with an "
-                                "invalid number of bytes")
+                raise RuntimeError("Internal failure. An IP was returned with "
+                                   " an invalid number of bytes")
         else:
             self.instance = None
 

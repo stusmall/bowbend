@@ -21,7 +21,7 @@ impl<T> StreamItem<T> {
     fn next(item: T) -> Self {
         Self {
             complete: false,
-            item: Some(repr_c::Box::new(item)),
+            item: Some(Box::new(item).into()),
         }
     }
 
@@ -37,7 +37,7 @@ impl<T> StreamItem<T> {
 pub fn free_stream_item(_item: StreamItem<FfiResult<Report>>) {}
 
 #[derive_ReprC]
-#[ReprC::opaque]
+#[repr(opaque)]
 pub struct Scan {
     _runtime: Runtime,
     _handle: JoinHandle<()>,
@@ -45,10 +45,11 @@ pub struct Scan {
 
 impl Scan {
     fn new(runtime: Runtime, handle: JoinHandle<()>) -> repr_c::Box<Self> {
-        repr_c::Box::new(Scan {
+        Box::new(Scan {
             _runtime: runtime,
             _handle: handle,
         })
+        .into()
     }
 }
 
@@ -80,7 +81,7 @@ pub fn start_scan(
             let report = Report::from(internal_report);
             let ret = StreamItem::next(FfiResult {
                 status_code: StatusCodes::Ok,
-                contents: Some(repr_c::Box::new(report)),
+                contents: Some(Box::new(report).into()),
             });
 
             callback(ret);
