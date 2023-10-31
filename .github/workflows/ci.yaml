@@ -25,7 +25,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@1.64.0
+        uses: dtolnay/rust-toolchain@1.65.0
       - name: Install Python
         uses: actions/setup-python@v4
         with:
@@ -103,7 +103,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@1.64.0
+        uses: dtolnay/rust-toolchain@1.65.0
       - name: Install Python
         uses: actions/setup-python@v4
         with:
@@ -192,7 +192,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@1.64.0
+        uses: dtolnay/rust-toolchain@1.65.0
         with:
           components: clippy
       - name: Fetch Python wheels
@@ -252,7 +252,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-stable-${{ hashFiles('**/Cargo.lock') }}
       - name: Install Rust stable toolchain
-        uses: dtolnay/rust-toolchain@1.64.0
+        uses: dtolnay/rust-toolchain@1.65.0
       - name: Install cargo spellcheck
         run: wget -O ~/.cargo/bin/cargo-spellcheck https://github.com/drahnr/cargo-spellcheck/releases/download/v0.12.2/x86_64-unknown-linux-gnu-cargo-spellcheck-v0.12.2 && chmod +x ~/.cargo/bin/cargo-spellcheck
       - name: Run spellcheck
