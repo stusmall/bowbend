@@ -14,7 +14,7 @@ mio = { version="0.8", features=["os-ext"] }
 nom = "7.1"
 openssl = { version = "0.10", features = ["vendored"] }
 pin-project = "1"
-pnet = "0.33"
+pnet = "0.34.0"
 rand = { version="0.8", features=["std", "small_rng"] }
 reqwest = "0.11"
 socket2 = { version="0.5", features=["all"]}
