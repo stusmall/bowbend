@@ -6,7 +6,6 @@ use std::{
 use futures::Stream;
 use pin_project::pin_project;
 
-
 #[derive(Eq, PartialEq)]
 enum InternalState {
     Start,
@@ -173,7 +172,8 @@ mod test {
         let v: Vec<_> = half_select(main_stream_mock, secondary_stream_mock)
             .collect()
             .await;
-        // This will select from main first.  Find something, check secondary next.  Then it will check main again, get Read(None) and then immediately bail
+        // This will select from main first.  Find something, check secondary next.
+        // Then it will check main again, get Read(None) and then immediately bail
         assert_eq!(v, vec![1, 5]);
     }
 }

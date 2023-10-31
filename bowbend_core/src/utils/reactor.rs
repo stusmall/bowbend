@@ -1,19 +1,14 @@
 use std::{collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, task::Poll, time::Duration};
 
-use futures::{
-    stream,
-    stream::{select, BoxStream},
-    Stream, StreamExt,
-};
+use futures::{stream, Stream, StreamExt};
 use linked_hash_map::LinkedHashMap;
 use pin_project::pin_project;
 use tokio::time::{interval, Instant, Interval};
 use tracing::{debug, trace, warn};
 
-use crate::logging::setup_tracing;
+use crate::utils::half_select::half_select;
 
-//TODO: remove debug
-pub(crate) trait Context: Debug + Send {
+pub(crate) trait Context: Send {
     type Result: Result;
 
     fn start_time(&self) -> Instant;
@@ -21,8 +16,7 @@ pub(crate) trait Context: Debug + Send {
     fn create_timeout_result(&self) -> Self::Result;
 }
 
-//TODO: remove debug
-pub(crate) trait Result: Debug + Send {}
+pub(crate) trait Result: Send {}
 
 pub(crate) trait Index: Clone + Debug + Eq + Hash + PartialEq {}
 
@@ -30,43 +24,47 @@ enum Item<I, C, R> {
     Context((I, C)),
     Result((I, R)),
 }
-pub(crate) fn reactor<I: Index, C: Context>(
-    context_stream: impl Stream<Item = (I, C)> + 'static + Send,
-    result_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
+pub(crate) fn reactor<
+    I: Index,
+    C: Context,
+    S1: Stream<Item = (I, C)> + 'static + Send,
+    S2: Stream<Item = (I, C::Result)> + 'static + Send,
+>(
+    context_stream: S1,
+    result_stream: S2,
     timeout: Duration,
 ) -> impl Stream<Item = (C, C::Result)> {
-    let reactor = InnerReactor::new(context_stream, result_stream, timeout);
+    let input = half_select(
+        context_stream.map(|(i, c)| Item::Context((i, c))),
+        result_stream.map(|(i, r)| Item::Result((i, r))),
+    );
+    let reactor = InnerReactor::new(input, timeout);
     reactor.map(stream::iter).flatten()
 }
 #[pin_project]
-struct InnerReactor<I: Index, C: Context> {
+struct InnerReactor<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> {
     waiting_for_match: LinkedHashMap<I, C>,
     out_of_order_results: HashMap<I, C::Result>,
-    // TODO: try and make this generic rather than boxed
     #[pin]
-    input: BoxStream<'static, Item<I, C, C::Result>>,
+    input: S,
     timeout: Duration,
     #[pin]
     gc_interval: Interval,
     final_pass: bool,
 }
 
-impl<I: Index, C: Context> InnerReactor<I, C> {
+impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> InnerReactor<I, C, S> {
     pub fn new(
-        context_stream: impl Stream<Item = (I, C)> + 'static + Send,
-        results_stream: impl Stream<Item = (I, C::Result)> + 'static + Send,
+        input: S,
         timeout: Duration,
     ) -> Self {
-        let input = select(
-            context_stream.map(|(i, c)| Item::Context((i, c))),
-            results_stream.map(|(i, r)| Item::Result((i, r))),
-        );
 
-        let gc_interval = interval(timeout / 5);
+        let gc_interval = interval(timeout / 5); //TODO: don't hardcore
+
         Self {
             waiting_for_match: Default::default(),
             out_of_order_results: Default::default(),
-            input: input.boxed(),
+            input,
             timeout,
             gc_interval,
             final_pass: false,
@@ -74,10 +72,12 @@ impl<I: Index, C: Context> InnerReactor<I, C> {
     }
 }
 
-impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
+impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
+    for InnerReactor<I, C, S>
+{
     type Item = Vec<(C, C::Result)>;
 
-    #[tracing::instrument(level = "trace", ret, skip(self, cx))]
+    #[tracing::instrument(level = "trace", skip(self, cx))]
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -143,11 +143,15 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
 
         // Do a GC pass.
         // Any items started before this Instant have timed out.  Remove them from our
-        // "waiting" list and return expired entries TODO: if final it should
-        // return all entries in waiting_for_match
+        // "waiting" list and return expired entries
         let trim_instant = Instant::now() - *projection.timeout;
         for entry in projection.waiting_for_match.entries() {
-            if trim_instant > entry.get().start_time() {
+            trace!(
+                "checking start time {:?} against trim time {:?}",
+                entry.get().start_time(),
+                trim_instant
+            );
+            if trim_instant >= entry.get().start_time() {
                 let context = entry.remove();
                 let result = context.create_timeout_result();
                 to_ret.push((context, result));
@@ -155,6 +159,15 @@ impl<I: Index, C: Context> Stream for InnerReactor<I, C> {
         }
 
         if *projection.final_pass {
+            let mut timeouts: Vec<_> = projection
+                .waiting_for_match
+                .drain()
+                .map(|x| {
+                    let r = x.1.create_timeout_result();
+                    (x.1, r)
+                })
+                .collect();
+            to_ret.append(&mut timeouts);
             if to_ret.is_empty() {
                 Poll::Ready(None)
             } else {
@@ -235,7 +248,7 @@ mod test {
 
     #[tokio::test]
     async fn basic_timeout() {
-        setup_tracing();
+        let start = Instant::now();
         let context_stream_mock = StreamMockBuilder::new()
             .next(("target1", TestContext::new("context1")))
             .next(("target2", TestContext::new("context2")))
@@ -244,7 +257,6 @@ mod test {
         let result_stream_mock = StreamMockBuilder::new()
             .next(("target1", "result1".to_string()))
             .wait(Duration::from_secs(10))
-            .next(("target2", "result2".to_string()))
             .build();
         let results: Vec<(TestContext, String)> = reactor(
             context_stream_mock,
@@ -255,5 +267,7 @@ mod test {
         .await;
         assert_eq!(results.get(0).unwrap().1, "result1");
         assert_eq!(results.get(1).unwrap().1, "context2 timeout");
+        // Assert that we didn't wait for the 10 second pause from the result stream
+        assert!((Instant::now() - start) < Duration::from_secs(5));
     }
 }
