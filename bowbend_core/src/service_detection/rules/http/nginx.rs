@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use nom::{
-    bytes::complete::{tag, take_until},
+    bytes::complete::{tag, take_while},
     IResult,
 };
 use tracing::instrument;
@@ -111,7 +111,7 @@ fn parse_nginx_server_header(input: &str) -> IResult<&str, NginxServerHeader> {
     // now.  I'm really interested in just getting something very simple
     // running.
     let (input, _) = tag("nginx/")(input)?;
-    let (input, version) = take_until(" ")(input)?;
+    let (input, version) = take_while(|x: char| !x.is_ascii_whitespace())(input)?;
     Ok((input, NginxServerHeader { version }))
 }
 
@@ -124,4 +124,8 @@ fn test_parsing_header() {
         NginxServerHeader { version: "1.18.0" }
     );
     assert!(parse_nginx_server_header("apache").is_err());
+    assert_eq!(
+        parse_nginx_server_header("nginx/1.25.3").unwrap().1,
+        NginxServerHeader { version: "1.25.3" }
+    )
 }

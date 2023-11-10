@@ -35,6 +35,8 @@ jobs:
         run: pip install cffi==1.15.1 maturin==0.12.9
       - name: Build
         run: cargo xtask build --release
+      - name: Check for uncommitted changes
+        run: git diff --exit-code
       - name: Upload Python wheels
         uses: actions/upload-artifact@v3
         with:
@@ -77,6 +79,8 @@ jobs:
         run: pip install cffi==1.15.1 maturin==0.12.9
       - name: Build
         run: cargo xtask build --asan
+      - name: Check for uncommitted changes
+        run: git diff --exit-code
       - name: Upload Python wheels
         uses: actions/upload-artifact@v3
         with:
@@ -119,60 +123,41 @@ jobs:
   integration-test:
     name: Integration Tests
     needs: build-release
-    # We aren't able to run vagrant inside the linux runners.  Using the macOS runner lets us get around the problem of
-    # running a VM in a VM.  This is such an expensive way to just run some VMs.
-    runs-on: macos-12
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Setup cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.vagrant.d/boxes
-          key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
-      - name: Install vagrant plugins
-        run: vagrant plugin install vagrant-hosts
-      - name: Run vagrant up
-        run: VAGRANT_LOG=debug vagrant up --provider virtualbox
       - name: Fetch Python wheels
         uses: actions/download-artifact@v3
         with:
           name: python-release-wheels
-      - name: Run python integration test
-        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*linux*x86_64.whl | xargs -0  sudo pip install && sudo python3 /vagrant/integration/python/integration_test.py'
+      - name: Start test containers
+        run: ./scripts/start-test-containers.sh
+      - name: Run Python integration test
+        run: docker run --rm -v $(pwd):/bowbend --net test-network python:3.10 sh -c 'ls -d /bowbend/* | grep "bowbend.*linux.*whl" | xargs pip3 install && python3 /bowbend/integration/python/integration_test.py'
       - name: Fetch Rust integration test
         uses: actions/download-artifact@v3
         with:
           name: rust-release-integration-test
       - name: Run rust integration test
-        run: chmod +x integration_test && vagrant ssh -c 'sudo /vagrant/integration_test'
+        run: chmod +x integration_test &&  docker run --rm -v $(pwd):/bowbend --net test-network ubuntu sh -c '/bowbend/integration_test'
   integration-test-with-asan:
     name: Integration Tests with Address Sanitizer
     needs: build-asan
-    # We aren't able to run vagrant inside the linux runners.  Using the macOS runner lets us get around the problem of
-    # running a VM in a VM.  This is such an expensive way to just run some VMs.
-    runs-on: macos-12
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Setup cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.vagrant.d/boxes
-          key: ${{ runner.os }}-vagrant-${{ hashFiles('Vagrantfile') }}
-      - name: Install vagrant plugins
-        run: vagrant plugin install vagrant-hosts
-      - name: Run vagrant up
-        run: VAGRANT_LOG=debug vagrant up --provider virtualbox
       - name: Fetch Python wheels
         uses: actions/download-artifact@v3
         with:
           name: python-debug-wheels
-      - name: Run python integration test
-        run: vagrant ssh -c 'ls -d /vagrant/bowbend-*linux*x86_64.whl | xargs -0  sudo pip install && sudo PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /vagrant/integration/python/integration_test.py'
-      # Since the rust SDK has no FFI, we are skipping running its integration test with asan
+      - name: Start test containers
+        run: ./scripts/start-test-containers.sh
+      - name: Run Python integration test
+        run: docker run --rm -v $(pwd):/bowbend --net test-network python:3.10 sh -c 'ls -d /bowbend/* | grep "bowbend.*linux.*whl"  | xargs  pip3 install && apt-get update && apt-get install -y libasan6 && PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /bowbend/integration/python/integration_test.py'
   lint:
     name: Lint
     needs: build-release

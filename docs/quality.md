@@ -45,10 +45,14 @@ strange bugs, crashes, security issues with very little human cost.
 
 ## Integration Tests
 
-The vast majority of testing is handled via integration tests.  Vagrant is used to build a small network of VMs to 
-scan.  This is used because it is easy to manage and allows us to configure ICMP on some hosts.  Today we use real 
-services on these VMs to scan and identify but that won't scale.  We can't run a VM for each service we have a rule 
-for and with a variety of different versions.  In the future we will introduce a mocking service that will allow us 
+The vast majority of testing is handled via integration tests.  Docker is used to build a small network of containers to 
+scan.  Originally we used Vagrant and VMs but GitHub started to block running VMs on all runner types, so it was 
+switched to Docker. One big advantage of Vagrant is ease of configuration and the ability to configure ICMP per host.  
+We have managed to hack together something similar with iptables, but it takes more effort.  Eventually if the CI 
+solution changes we might switch back to a VM based solution.
+
+Today we use real services to scan and identify but that won't scale.  We can't run a VM for each service we have a rule 
+for and with a variety of different versions.  In the future we will introduce a mocking solution that will allow us 
 to mock some aspects of arbitrary services.  
 
 All integration tests are run twice.  We produce two artifacts for the SDK.  One is the release artifact.  It is 

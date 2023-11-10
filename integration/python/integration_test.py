@@ -10,7 +10,7 @@ from bowbend.scan import ScanFinished
 
 
 async def basic_ip_scan():
-    ipv4_target = Target(ip_address("192.168.56.3"))
+    ipv4_target = Target(ip_address("172.0.0.2"))
     builder = Builder()
     builder.set_ping(False)
     builder.set_port_list([80, 1337])
@@ -33,9 +33,9 @@ async def scan_with_icmp():
         elif isinstance(result, Report):
             assert (isinstance(result.contents, ReportContents))
             assert (result.contents.ping_result is not None)
-            if result.instance == ip_address("192.168.56.3"):
+            if result.instance == ip_address("172.0.0.2"):
                 assert (result.contents.ping_result.ping_result_type == PingResultType.RECEIVED_REPLY)
-            elif result.instance == ip_address("192.168.56.4"):
+            elif result.instance == ip_address("172.0.0.4"):
                 assert (result.contents.ping_result.ping_result_type == PingResultType.TIMEOUT)
             else:
                 raise Exception("This doesn't match either target")
@@ -45,8 +45,8 @@ async def scan_with_icmp():
     builder = Builder()
     builder.set_ping(True)
     builder.set_port_list([22])
-    builder.add_target(Target(ip_address("192.168.56.3")))
-    builder.add_target(Target(ip_address("192.168.56.4")))
+    builder.add_target(Target(ip_address("172.0.0.2")))
+    builder.add_target(Target(ip_address("172.0.0.4")))
     scan = Scan(builder)
     assert_result(await scan.next())
     assert_result(await scan.next())
