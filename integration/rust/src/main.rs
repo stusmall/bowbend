@@ -6,7 +6,7 @@ use bowbend::{
 use futures_util::stream::StreamExt;
 
 async fn basic_ip_scan() {
-    let target: Target = Target::IP("192.168.56.3".parse::<IpAddr>().unwrap());
+    let target: Target = Target::IP("172.0.0.2".parse::<IpAddr>().unwrap());
     let mut builder = ConfigBuilder::default();
     builder.set_ping(false);
     builder.set_port_list(vec![80, 1337]);
@@ -27,13 +27,13 @@ async fn scan_with_icmp() {
     fn assert_results(report: Report) {
         match report.instance.unwrap() {
             TargetInstance::IP(x) => match x.to_string().as_str() {
-                "192.168.56.3" => {
+                "172.0.0.2" => {
                     assert!(matches!(
                         report.contents.unwrap().icmp.unwrap().result_type,
                         PingResultType::Reply(_)
                     ));
                 }
-                "192.168.56.4" => {
+                "172.0.0.4" => {
                     assert!(matches!(
                         report.contents.unwrap().icmp.unwrap().result_type,
                         PingResultType::Timeout
@@ -48,8 +48,8 @@ async fn scan_with_icmp() {
     let mut builder = ConfigBuilder::default();
     builder.set_ping(true);
     builder.set_port_list(vec![80, 1337]);
-    builder.add_target(Target::IP("192.168.56.3".parse::<IpAddr>().unwrap()));
-    builder.add_target(Target::IP("192.168.56.4".parse::<IpAddr>().unwrap()));
+    builder.add_target(Target::IP("172.0.0.2".parse::<IpAddr>().unwrap()));
+    builder.add_target(Target::IP("172.0.0.4".parse::<IpAddr>().unwrap()));
     let stream = start_scan(builder).await.unwrap();
     let mut reports = stream.collect::<Vec<Report>>().await;
     assert_eq!(reports.len(), 2);

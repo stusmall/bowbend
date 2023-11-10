@@ -3,8 +3,8 @@
 First build it with: 
 `cargo xtask build --asan`
 
-Then you can run it in a test VM with:
-`vagrant ssh -c "sudo pip install --force-reinstall /vagrant/sdks/python/target/wheels/bowbend-0.1.0-py3-none-linux_x86_64.whl && sudo PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /vagrant/integration/python/integration_test.py"`
+Then you can run it in a test container with:
+`docker run --rm -v $(pwd):/bowbend --net test-network python:3.10 sh -c 'ls -d /bowbend/* | grep "bowbend.*linux.*whl"  | xargs  pip3 install && apt-get update && apt-get install -y libasan6 && PYTHONMALLOC=malloc LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.6 python3 /bowbend/integration/python/integration_test.py`
 
 # How to use GDB to debug the module:
 - Create a new venv `python3 -m venv venv; source venv/bin/activate`
