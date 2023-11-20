@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "bowbend"
 requires-python = ">=3.10"
 dependencies = [
-    "cffi==1.15.1",
+    "cffi==1.16.0",
     "janus==1.0.0"
 ]
 
