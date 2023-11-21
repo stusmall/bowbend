@@ -2,30 +2,26 @@
 //! are up.
 
 use std::{
-    collections::HashMap,
     io,
     net::{IpAddr, SocketAddr},
     sync::Arc,
     time::{Duration, SystemTime},
 };
 
-use async_stream::stream;
-use futures::{select, stream::select as combine, FutureExt, Stream, StreamExt};
+use futures::{stream::select as combine, Stream, StreamExt};
 use rand::random;
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::{sync::Semaphore, time::sleep};
-use tokio::time::Instant;
-use tracing::{debug, error, instrument};
+use tokio::{sync::Semaphore, task};
+use tokio::sync::mpsc::{channel, Receiver};
+use tokio_stream::wrappers::ReceiverStream;
+use tracing::instrument;
 
-use crate::{
-    icmp::{
-        icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
-        icmp_writer::{send_ping, PingSentSummary},
-    },
-    stream::iter,
-    target::TargetInstance,
-    PortscanErr,
-};
+use crate::{icmp::{
+    icmp_listener::{listen_for_icmp, ReceivedIcmpPacket},
+    icmp_writer::{send_ping, PingSentSummary},
+}, stream::iter, target::TargetInstance, PortscanErr, utils};
+use crate::icmp::icmp_writer::PingWriteError;
+use crate::utils::reactor::reactor;
 
 pub(crate) mod icmp_listener;
 pub(crate) mod icmp_writer;
@@ -52,6 +48,10 @@ pub enum PingResultType {
     Reply(IcmpSummary),
 }
 
+impl utils::reactor::Result for PingResult {
+
+}
+
 /// Details on an ICMP reply we received.  Right now we are just holding onto
 /// the time received.
 #[derive(Debug)]
@@ -61,14 +61,17 @@ pub struct IcmpSummary {
 }
 
 impl crate::utils::reactor::Context for PingSentSummary {
-    type Result = PingResultType;
+    type Result = PingResult;
 
-    fn start_time(&self) -> Instant {
-        self.time_sent.into()
+    fn start_time(&self) -> SystemTime {
+        self.time_sent
     }
 
     fn create_timeout_result(&self) -> Self::Result {
-        todo!()
+        PingResult {
+            ping_sent: self.time_sent,
+            result_type: PingResultType::Timeout,
+        }
     }
 }
 
@@ -77,74 +80,87 @@ pub(crate) async fn icmp_sweep(
     mut target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin,
     semaphore: Arc<Semaphore>,
 ) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
-    #[instrument(level = "error")]
-    fn socket_open_error(_: io::Error) -> PortscanErr {
-        PortscanErr::InsufficientPermission
-    }
 
+    let recieved_packet_rx = start_icmp_listener_task().await?;
+    let (ping_sent_rx, ping_sending_error_rx) = start_ping_sender_task(target_stream, semaphore).await?;
+
+    let context_stream = ReceiverStream::new(ping_sent_rx)
+        .map(|x| {
+            (x.icmp_identity, x)
+        });
+
+    let result_stream =  ReceiverStream::new(recieved_packet_rx)
+        .map(|x|{
+            (x.identity, x)
+        });
+    // let r = reactor(context_stream, result_stream, Duration::from_secs(10));
+    Ok(iter(vec![]))
+}
+
+
+async fn start_ping_sender_task(mut target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin,
+                                semaphore: Arc<Semaphore>) -> Result<(Receiver<PingSentSummary>, Receiver<PingWriteError>), PortscanErr>{
     let icmpv4_sender = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))
         .map_err(socket_open_error)?;
     let icmpv6_sender = Socket::new_raw(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))
         .map_err(socket_open_error)?;
+    let sent_ping_channel = channel::<PingSentSummary>(crate::consts::CHANNEL_SIZE);
+    let error_channel = channel::<PingWriteError>(crate::consts::CHANNEL_SIZE);
+    let _write_ping_task = tokio::task::spawn( async move {
+        while let Some(target) = target_stream.next().await {
+            let dest = SocketAddr::new(target.get_ip(), 0).into();
+            let sender = match target.get_ip() {
+                IpAddr::V4(_) => {
+                    &icmpv4_sender
+                }
+                IpAddr::V6(_) => {
+                    &icmpv6_sender
+                }
+            };
+            match send_ping(
+                target.clone(),
+                sender,
+                dest,
+                random(),
+                random(),
+                semaphore.clone(),
+            ).await {
+                Ok(x) => sent_ping_channel.0.send(x).await.unwrap(),
+                Err(e) => error_channel.0.send(e).await.unwrap(),
+            };
+        }
+    });
+
+    Ok((sent_ping_channel.1, error_channel.1))
+}
+
+async fn start_icmp_listener_task() -> Result<Receiver<ReceivedIcmpPacket>, PortscanErr>{
+
+    // TODO: This is pretty wonky.  We should move the actual listening into their own tasks.  Instead
+    // it has some of my old stream heavy code and puts a facade of a task at the end so it fits in.
+    // this will cause unneeded wakes
+
     let icmpv4_listener_socket = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))
         .map_err(socket_open_error)?;
     let icmpv6_listener_socket = Socket::new_raw(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))
         .map_err(socket_open_error)?;
     let icmpv4_listener = listen_for_icmp(icmpv4_listener_socket).boxed();
     let icmpv6_listener = listen_for_icmp(icmpv6_listener_socket).boxed();
-    let mut sent_pings = HashMap::new();
-
-    while let Some(target) = target_stream.next().await {
-        let dest = SocketAddr::new(target.get_ip(), 0).into();
-        match target.get_ip() {
-            IpAddr::V4(_) => {
-                let future = send_ping(
-                    target.clone(),
-                    &icmpv4_sender,
-                    dest,
-                    random(),
-                    random(),
-                    semaphore.clone(),
-                );
-                sent_pings.insert(target, future);
-            }
-            IpAddr::V6(_) => {
-                let future = send_ping(
-                    target.clone(),
-                    &icmpv6_sender,
-                    dest,
-                    random(),
-                    random(),
-                    semaphore.clone(),
-                );
-                sent_pings.insert(target, future);
-            }
+    let mut merged_stream = combine(icmpv4_listener, icmpv6_listener);
+    let (tx, rx) = channel::<ReceivedIcmpPacket>(crate::consts::CHANNEL_SIZE);
+    task::spawn(async move {
+        while let Some(Ok(packet)) = merged_stream.next().await {
+            tx.send(packet).await.unwrap();
         }
-    }
-
-    let mut targets = HashMap::new();
-    let mut errors = Vec::new();
-    for (target, output) in sent_pings {
-        match output.await {
-            Ok(identity) => {
-                targets.insert(target.get_ip(), (target.to_owned(), identity));
-            }
-            Err(e) => {
-                errors.push((
-                    e.target_instance,
-                    Some(PingResult {
-                        ping_sent: SystemTime::now(),
-                        result_type: PingResultType::Error(e.error),
-                    }),
-                ));
-            }
-        };
-    }
-    let merged_stream = combine(icmpv4_listener, icmpv6_listener);
-
-    //Ok(combine(iter(errors), await_results(targets, merged_stream)))
-    Ok(iter(errors))
+    });
+    Ok(rx)
 }
+
+#[instrument(level = "error")]
+fn socket_open_error(_: io::Error) -> PortscanErr {
+    PortscanErr::InsufficientPermission
+}
+
 /*
 #[instrument(skip(targets, icmp_listener))]
 fn await_results(
@@ -210,9 +226,8 @@ pub(crate) async fn skip_icmp(
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io, net::IpAddr, time::SystemTime};
+    use std::{io, net::IpAddr, time::SystemTime};
 
-    use futures::{stream, StreamExt};
 
     use crate::{
         icmp::{icmp_listener::ReceivedIcmpPacket, icmp_writer::PingSentSummary},

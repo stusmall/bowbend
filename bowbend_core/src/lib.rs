@@ -27,3 +27,4 @@ mod service_detection;
 mod target;
 mod tcp;
 pub(crate) mod utils;
+mod consts;

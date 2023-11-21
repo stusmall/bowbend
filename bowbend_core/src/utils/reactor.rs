@@ -1,4 +1,5 @@
 use std::{collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, task::Poll, time::Duration};
+use std::time::SystemTime;
 
 use futures::{stream, Stream, StreamExt};
 use linked_hash_map::LinkedHashMap;
@@ -14,14 +15,15 @@ use crate::utils::half_select::half_select;
 pub(crate) trait Context: Send {
     type Result: Result;
 
-    fn start_time(&self) -> Instant;
+    fn start_time(&self) -> SystemTime;
 
     /// When the
     fn create_timeout_result(&self) -> Self::Result;
 }
 
 /// The only requirement we have for the result type is that it is [Send].
-pub(crate) trait Result: Send {}
+pub(crate) trait Result: Send {
+}
 
 /// The is the unique identifier that is used to link a response back to the
 /// request.  For example for something that is unique to the host, like ICMP,
@@ -179,7 +181,7 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
         // Do a GC pass.
         // Any items started before this Instant have timed out.  Remove them from our
         // "waiting" list and return expired entries
-        let trim_instant = Instant::now() - *projection.timeout;
+        let trim_instant = SystemTime::now() - *projection.timeout;
         for entry in projection.waiting_for_match.entries() {
             trace!(
                 "checking start time {:?} against trim time {:?}",
@@ -228,14 +230,14 @@ mod test {
     #[derive(Debug)]
     struct TestContext {
         ctx: String,
-        started: Instant,
+        started: SystemTime,
     }
 
     impl TestContext {
         fn new(s: &str) -> Self {
             TestContext {
                 ctx: s.to_string(),
-                started: Instant::now(),
+                started: SystemTime::now(),
             }
         }
     }
@@ -243,7 +245,7 @@ mod test {
     impl Context for TestContext {
         type Result = String;
 
-        fn start_time(&self) -> Instant {
+        fn start_time(&self) -> SystemTime {
             self.started
         }
 
