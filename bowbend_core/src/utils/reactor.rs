@@ -123,7 +123,7 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Reply>>> Stream
 {
     type Item = Vec<(C, C::Conclusion)>;
 
-    // #[tracing::instrument(level = "trace", skip(self, cx))]
+    #[tracing::instrument(level = "trace", skip(self, cx))]
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
