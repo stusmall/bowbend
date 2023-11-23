@@ -1,10 +1,16 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash, pin::Pin, task::Poll, time::Duration};
-use std::time::SystemTime;
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    hash::Hash,
+    pin::Pin,
+    task::Poll,
+    time::{Duration, SystemTime},
+};
 
 use futures::{stream, Stream, StreamExt};
 use linked_hash_map::LinkedHashMap;
 use pin_project::pin_project;
-use tokio::time::{interval, Instant, Interval};
+use tokio::time::{interval, Interval};
 use tracing::{debug, trace, warn};
 
 use crate::utils::half_select::half_select;
@@ -13,17 +19,20 @@ use crate::utils::half_select::half_select;
 /// request that will be needed to form a result.  It might be the time it was
 /// started, parameters of the scan, etc.
 pub(crate) trait Context: Send {
-    type Result: Result;
+    type Reply: Reply;
+    type Conclusion: Conclusion;
 
     fn start_time(&self) -> SystemTime;
 
-    /// When the
-    fn create_timeout_result(&self) -> Self::Result;
+    fn create_timeout_conclusion(&self) -> Self::Conclusion;
+
+    fn create_conclusion(&self, _: Self::Reply) -> Self::Conclusion;
 }
 
-/// The only requirement we have for the result type is that it is [Send].
-pub(crate) trait Result: Send {
-}
+/// The only requirement we have for the reply type is that it is [Send].
+pub(crate) trait Reply: Send {}
+
+pub(crate) trait Conclusion: Send {}
 
 /// The is the unique identifier that is used to link a response back to the
 /// request.  For example for something that is unique to the host, like ICMP,
@@ -36,7 +45,7 @@ pub(crate) trait Index: Clone + Debug + Eq + Hash + PartialEq {}
 /// better represent this internally
 enum Item<I, C, R> {
     Context((I, C)),
-    Result((I, R)),
+    Reply((I, R)),
 }
 
 /// Sometimes we need to match incoming packets with the original request to
@@ -49,8 +58,8 @@ enum Item<I, C, R> {
 /// comes in it will held on to waiting for a response.  When a response comes
 /// in we will attempt to match it with a previous seen request. If no response
 /// for a request comes in by the time it hits a timeout, we will call the
-/// [Context::create_timeout_result] to create a timeout result to emmit on the
-/// stream.
+/// [Context::create_timeout_conclusion] to create a timeout result to emmit on
+/// the stream.
 ///
 /// Timeouts are not guaranteed to be be emitted exactly when the event would
 /// have expired. Internally this stream maintains a timer that is used to
@@ -67,15 +76,15 @@ pub(crate) fn reactor<
     I: Index,
     C: Context,
     S1: Stream<Item = (I, C)> + 'static + Send,
-    S2: Stream<Item = (I, C::Result)> + 'static + Send,
+    S2: Stream<Item = (I, C::Reply)> + 'static + Send,
 >(
     context_stream: S1,
-    result_stream: S2,
+    reply_stream: S2,
     timeout: Duration,
-) -> impl Stream<Item = (C, C::Result)> {
+) -> impl Stream<Item = (C, C::Conclusion)> {
     let input = half_select(
         context_stream.map(|(i, c)| Item::Context((i, c))),
-        result_stream.map(|(i, r)| Item::Result((i, r))),
+        reply_stream.map(|(i, r)| Item::Reply((i, r))),
     );
     let reactor = InnerReactor::new(input, timeout);
     reactor.map(stream::iter).flatten()
@@ -83,9 +92,9 @@ pub(crate) fn reactor<
 
 /// The resulting stream of responses or timeouts.  Returned by [reactor]
 #[pin_project]
-struct InnerReactor<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> {
+struct InnerReactor<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Reply>>> {
     waiting_for_match: LinkedHashMap<I, C>,
-    out_of_order_results: HashMap<I, C::Result>,
+    out_of_order_results: HashMap<I, C::Reply>,
     #[pin]
     input: S,
     timeout: Duration,
@@ -94,7 +103,7 @@ struct InnerReactor<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>
     final_pass: bool,
 }
 
-impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> InnerReactor<I, C, S> {
+impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Reply>>> InnerReactor<I, C, S> {
     pub fn new(input: S, timeout: Duration) -> Self {
         let gc_interval = interval(timeout / 5); //TODO: don't hardcore
 
@@ -109,51 +118,48 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> InnerReactor
     }
 }
 
-impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
+impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Reply>>> Stream
     for InnerReactor<I, C, S>
 {
-    type Item = Vec<(C, C::Result)>;
+    type Item = Vec<(C, C::Conclusion)>;
 
-    #[tracing::instrument(level = "trace", skip(self, cx))]
+    // #[tracing::instrument(level = "trace", skip(self, cx))]
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let mut projection = self.as_mut().project();
         let mut item = None;
-        loop {
-            match projection.gc_interval.poll_tick(cx) {
-                Poll::Ready(_) => {}
-                Poll::Pending => break,
-            }
-        }
-        if *projection.final_pass == false {
+        while let Poll::Ready(_) = projection.gc_interval.poll_tick(cx) {  }
+        if !(*projection.final_pass) {
             loop {
                 match projection.input.as_mut().poll_next(cx) {
                     Poll::Ready(Some(Item::Context((index, context)))) => {
                         // We have an item from the context stream.  Let's reset the GC timer, try
                         // and match it up, then do a GC pass
                         projection.gc_interval.reset();
-                        if let Some(result) = projection.out_of_order_results.remove(&index) {
+                        if let Some(reply) = projection.out_of_order_results.remove(&index) {
                             warn!("We found a match for an out of order response!  The system will continue to work but this is a strange situation");
-                            item = Some((context, result));
+                            let conclusion = context.create_conclusion(reply);
+                            item = Some((context, conclusion));
                             break;
                         } else {
                             trace!("Got a context");
                             projection.waiting_for_match.insert(index, context);
                         }
                     }
-                    Poll::Ready(Some(Item::Result((index, result)))) => {
+                    Poll::Ready(Some(Item::Reply((index, reply)))) => {
                         // We have an item from the result stream.  Let's reset the GC timer, try to
                         // match it up then do a GC pass
                         projection.gc_interval.reset();
                         if let Some(context) = projection.waiting_for_match.remove(&index) {
                             trace!("Found a waiting match");
-                            item = Some((context, result));
+                            let conclusion = context.create_conclusion(reply);
+                            item = Some((context, conclusion));
                             break;
                         } else {
                             warn!("We have a result without a context.  Holding onto this but this is unexpected behavior");
-                            projection.out_of_order_results.insert(index, result);
+                            projection.out_of_order_results.insert(index, reply);
                         }
                     }
                     Poll::Ready(None) => {
@@ -190,8 +196,8 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
             );
             if trim_instant >= entry.get().start_time() {
                 let context = entry.remove();
-                let result = context.create_timeout_result();
-                to_ret.push((context, result));
+                let conclusion = context.create_timeout_conclusion();
+                to_ret.push((context, conclusion));
             }
         }
 
@@ -200,8 +206,8 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
                 .waiting_for_match
                 .drain()
                 .map(|x| {
-                    let r = x.1.create_timeout_result();
-                    (x.1, r)
+                    let conclusion = x.1.create_timeout_conclusion();
+                    (x.1, conclusion)
                 })
                 .collect();
             to_ret.append(&mut timeouts);
@@ -212,17 +218,17 @@ impl<I: Index, C: Context, S: Stream<Item = Item<I, C, C::Result>>> Stream
                 cx.waker().wake_by_ref();
                 Poll::Ready(Some(to_ret))
             }
-        } else {
-            if to_ret.is_empty() {
+        } else if to_ret.is_empty() {
                 Poll::Pending
             } else {
                 Poll::Ready(Some(to_ret))
             }
-        }
+
     }
 }
 #[cfg(test)]
 mod test {
+    use std::time::Instant;
     use tokio_test::stream_mock::StreamMockBuilder;
 
     use super::*;
@@ -243,20 +249,27 @@ mod test {
     }
 
     impl Context for TestContext {
-        type Result = String;
+        type Reply = String;
+        type Conclusion = String;
 
         fn start_time(&self) -> SystemTime {
             self.started
         }
 
-        fn create_timeout_result(&self) -> Self::Result {
+        fn create_timeout_conclusion(&self) -> Self::Reply {
             format!("{} timeout", self.ctx)
+        }
+
+        fn create_conclusion(&self, reply: Self::Reply) -> Self::Conclusion {
+            format!("{} conclusion", reply)
         }
     }
 
     impl Index for &str {}
 
-    impl Result for String {}
+    impl Reply for String {}
+
+    impl Conclusion for String {}
 
     #[tokio::test]
     async fn basic_reactor_test() {
@@ -278,9 +291,9 @@ mod test {
         )
         .collect()
         .await;
-        assert_eq!(results.get(0).unwrap().1, "result1");
-        assert_eq!(results.get(1).unwrap().1, "result2");
-        assert_eq!(results.get(2).unwrap().1, "result3");
+        assert_eq!(results.get(0).unwrap().1, "result1 conclusion");
+        assert_eq!(results.get(1).unwrap().1, "result2 conclusion");
+        assert_eq!(results.get(2).unwrap().1, "result3 conclusion");
     }
 
     #[tokio::test]
@@ -302,7 +315,7 @@ mod test {
         )
         .collect()
         .await;
-        assert_eq!(results.get(0).unwrap().1, "result1");
+        assert_eq!(results.get(0).unwrap().1, "result1 conclusion");
         assert_eq!(results.get(1).unwrap().1, "context2 timeout");
         // Assert that we didn't wait for the 10 second pause from the result stream
         assert!((Instant::now() - start) < Duration::from_secs(5));

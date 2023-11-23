@@ -1,1 +1,1 @@
-pub(crate) const CHANNEL_SIZE:usize = 30;
+pub(crate) const CHANNEL_SIZE: usize = 30;

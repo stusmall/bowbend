@@ -1,7 +1,7 @@
 use std::{
     io,
     mem::MaybeUninit,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     os::unix::io::AsRawFd,
     time::SystemTime,
 };
@@ -18,7 +18,6 @@ use tracing::{info, instrument, warn};
 // and host unreachable is kind of semantics.  We still won't continue the scan
 #[derive(Debug)]
 pub(crate) struct ReceivedIcmpPacket {
-    pub source: IpAddr,
     pub identity: u16,
     pub time_received: SystemTime,
 }
@@ -71,7 +70,7 @@ fn parse_packet(
     match &source {
         SocketAddr::V4(_) => {
             if let Some(ip_packet) = Ipv4Packet::new(&buffer[..bytes_read]) {
-                parse_icmp(source, ip_packet.payload())
+                parse_icmp( ip_packet.payload())
             } else {
                 info!("Failed to parse IPv4 packet");
                 None
@@ -79,7 +78,7 @@ fn parse_packet(
         }
         SocketAddr::V6(_) => {
             if let Some(ip_packet) = Ipv6Packet::new(&buffer[..bytes_read]) {
-                parse_icmp(source, ip_packet.payload())
+                parse_icmp( ip_packet.payload())
             } else {
                 info!("Failed to parse IPv6 packet");
                 None
@@ -89,11 +88,10 @@ fn parse_packet(
 }
 //TODO: replace pnet's implementation with my own.  It's already there just
 // need to drop it in and test it
-fn parse_icmp(source: SocketAddr, ip_payload: &[u8]) -> Option<ReceivedIcmpPacket> {
+fn parse_icmp(ip_payload: &[u8]) -> Option<ReceivedIcmpPacket> {
     let to_ret = IcmpPacket::new(ip_payload).map(|icmp_packet| {
         let identity = BigEndian::read_u16(icmp_packet.payload());
         ReceivedIcmpPacket {
-            source: source.ip(),
             identity,
             time_received: SystemTime::now(),
         }

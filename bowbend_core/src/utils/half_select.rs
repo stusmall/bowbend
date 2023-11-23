@@ -6,17 +6,12 @@ use std::{
 use futures::Stream;
 use pin_project::pin_project;
 
-#[derive(Eq, PartialEq)]
+#[derive(Default, Eq, PartialEq)]
 enum InternalState {
+    #[default]
     Start,
     SecondaryFinished,
     MainFinished,
-}
-
-impl Default for InternalState {
-    fn default() -> Self {
-        InternalState::Start
-    }
 }
 
 impl InternalState {
@@ -28,9 +23,10 @@ impl InternalState {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+#[derive(Debug, Default, PartialEq, Eq, Copy, Clone, Hash)]
 enum PollNext {
     /// Poll the first stream.
+    #[default]
     Main,
     /// Poll the second stream.
     Secondary,
@@ -49,12 +45,6 @@ impl PollNext {
             PollNext::Main => PollNext::Secondary,
             PollNext::Secondary => PollNext::Main,
         }
-    }
-}
-
-impl Default for PollNext {
-    fn default() -> Self {
-        PollNext::Main
     }
 }
 

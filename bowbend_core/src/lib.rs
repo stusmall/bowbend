@@ -18,6 +18,7 @@ pub use crate::{
 };
 
 mod config;
+mod consts;
 mod err;
 mod icmp;
 mod logging;
@@ -27,4 +28,3 @@ mod service_detection;
 mod target;
 mod tcp;
 pub(crate) mod utils;
-mod consts;
