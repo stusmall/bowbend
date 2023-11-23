@@ -133,7 +133,7 @@ async fn start_ping_sender_task(
     let sent_ping_channel =
         channel::<(TargetInstance, PingSentSummary)>(crate::consts::CHANNEL_SIZE);
     let error_channel = channel::<PingWriteError>(crate::consts::CHANNEL_SIZE);
-    let _write_ping_task = task::Builder::new().name("Send ICMP").spawn(async move {
+    let _write_ping_task = task::spawn(async move {
         while let Some(target) = target_stream.next().await {
             let dest = SocketAddr::new(target.get_ip(), 0).into();
             let sender = match target.get_ip() {
@@ -173,9 +173,7 @@ async fn start_icmp_listener_task() -> Result<Receiver<ReceivedIcmpPacket>, Port
     let mut merged_stream = combine(icmpv4_listener, icmpv6_listener);
     let (tx, rx) = channel::<ReceivedIcmpPacket>(crate::consts::CHANNEL_SIZE);
 
-    let _icmp_listener_task = task::Builder::new()
-        .name("ICMP Listener")
-        .spawn(async move {
+    let _icmp_listener_task = task::spawn(async move {
             while let Some(Ok(packet)) = merged_stream.next().await {
                 tx.send(packet).await.unwrap();
             }
