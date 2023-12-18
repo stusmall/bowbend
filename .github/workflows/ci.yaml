@@ -38,14 +38,14 @@ jobs:
       - name: Check for uncommitted changes
         run: git diff --exit-code
       - name: Upload Python wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-release-wheels
           path: |
             sdks/python/target/wheels/bowbend-*.whl
             sdks/python/target/wheels/bowbend-*.tar.gz
       - name: Upload Rust integration test
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rust-release-integration-test
           path: |
@@ -82,7 +82,7 @@ jobs:
       - name: Check for uncommitted changes
         run: git diff --exit-code
       - name: Upload Python wheels
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: python-debug-wheels
           path: |
