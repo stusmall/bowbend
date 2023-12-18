@@ -113,7 +113,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-release-wheels
       - name: Install Python format tools
@@ -129,7 +129,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-release-wheels
       - name: Start test containers
@@ -137,7 +137,7 @@ jobs:
       - name: Run Python integration test
         run: docker run --rm -v $(pwd):/bowbend --net test-network python:3.10 sh -c 'ls -d /bowbend/* | grep "bowbend.*linux.*whl" | xargs pip3 install && python3 /bowbend/integration/python/integration_test.py'
       - name: Fetch Rust integration test
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: rust-release-integration-test
       - name: Run rust integration test
@@ -151,7 +151,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-debug-wheels
       - name: Start test containers
@@ -181,7 +181,7 @@ jobs:
         with:
           components: clippy
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-release-wheels
       - name: Install Python lint tools
@@ -212,7 +212,7 @@ jobs:
         with:
           components: rustfmt
       - name: Fetch Python wheels
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: python-release-wheels
       - name: Install Python format tools
