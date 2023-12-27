@@ -31,7 +31,7 @@ pub async fn start_scan(
     };
     let ping_result_stream = if config_builder.ping {
         icmp_sweep(throttled_stream, semaphore.clone())
-            .await?
+            .await
             .boxed()
     } else {
         skip_icmp(throttled_stream).await?.boxed()

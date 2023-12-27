@@ -99,64 +99,72 @@ impl reactor::Context for (TargetInstance, PingSentSummary) {
 pub(crate) async fn icmp_sweep(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin,
     semaphore: Arc<Semaphore>,
-) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
-    let recieved_packet_rx = start_icmp_listener_task().await?;
-    let (ping_sent_rx, ping_sending_error_rx) =
-        start_ping_sender_task(target_stream, semaphore).await?;
+) -> impl Stream<Item = (TargetInstance, Option<PingResult>)> {
+    if let Ok(received_packet_rx) = start_icmp_listener_task().await {
+        let (ping_sent_rx, ping_sending_error_rx) =
+            start_ping_sender_task(target_stream, semaphore).await;
+        let error_stream = ReceiverStream::new(ping_sending_error_rx).map(|x| {
 
-    let context_stream = ReceiverStream::new(ping_sent_rx).map(|x| (x.1.icmp_identity, x));
-
-    let result_stream = ReceiverStream::new(recieved_packet_rx).map(|x| (x.identity, x));
-    let reactor_stream = reactor(context_stream, result_stream, Duration::from_secs(10));
-
-    let _ = ReceiverStream::new(ping_sending_error_rx).map(|_x| {
-       unimplemented!();
-    });
-
-    Ok(reactor_stream.map(|x| (x.0 .0, Some(x.1))))
+        });
+        let context_stream = ReceiverStream::new(ping_sent_rx).map(|x| (x.1.icmp_identity, x));
+        let result_stream = ReceiverStream::new(received_packet_rx).map(|x| (x.identity, x));
+        let reactor_stream = reactor(context_stream, result_stream, Duration::from_secs(10));
+        reactor_stream.map(|x| (x.0.0, Some(x.1))).boxed()
+    } else {
+        mark_all_as_icmp_error(target_stream).boxed()
+    }
 }
 
 async fn start_ping_sender_task(
     mut target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin,
     semaphore: Arc<Semaphore>,
-) -> Result<
+) ->
     (
         Receiver<(TargetInstance, PingSentSummary)>,
         Receiver<PingWriteError>,
-    ),
-    PortscanErr,
-> {
-    let icmpv4_sender = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))
-        .map_err(socket_open_error)?;
-    let icmpv6_sender = Socket::new_raw(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))
-        .map_err(socket_open_error)?;
-    let sent_ping_channel =
-        channel::<(TargetInstance, PingSentSummary)>(crate::consts::CHANNEL_SIZE);
-    let error_channel = channel::<PingWriteError>(crate::consts::CHANNEL_SIZE);
-    let _write_ping_task = task::spawn(async move {
-        while let Some(target) = target_stream.next().await {
-            let dest = SocketAddr::new(target.get_ip(), 0).into();
-            let sender = match target.get_ip() {
-                IpAddr::V4(_) => &icmpv4_sender,
-                IpAddr::V6(_) => &icmpv6_sender,
-            };
-            match send_ping(
-                target.clone(),
-                sender,
-                dest,
-                random(),
-                random(),
-                semaphore.clone(),
-            )
-            .await
-            {
-                Ok(x) => sent_ping_channel.0.send((target, x)).await.unwrap(),
-                Err(e) => error_channel.0.send(e).await.unwrap(),
-            };
-        }
-    });
+    )
+ {
+    let icmpv4_sender_res = Socket::new_raw(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4))
+        .map_err(socket_open_error);
+    let icmpv6_sender_res = Socket::new_raw(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6))
+        .map_err(socket_open_error);
+     let sent_ping_channel =
+         channel::<(TargetInstance, PingSentSummary)>(crate::consts::CHANNEL_SIZE);
+     let error_channel = channel::<PingWriteError>(crate::consts::CHANNEL_SIZE);
+     if let (Ok(icmpv4_sender), Ok(icmpv6_sender)) = (icmpv4_sender_res, icmpv6_sender_res) {
 
-    Ok((sent_ping_channel.1, error_channel.1))
+         let _write_ping_task = task::spawn(async move {
+             while let Some(target) = target_stream.next().await {
+                 let dest = SocketAddr::new(target.get_ip(), 0).into();
+                 let sender = match target.get_ip() {
+                     IpAddr::V4(_) => &icmpv4_sender,
+                     IpAddr::V6(_) => &icmpv6_sender,
+                 };
+                 match send_ping(
+                     target.clone(),
+                     sender,
+                     dest,
+                     random(),
+                     random(),
+                     semaphore.clone(),
+                 )
+                     .await
+                 {
+                     Ok(x) => sent_ping_channel.0.send((target, x)).await.unwrap(),
+                     Err(e) => error_channel.0.send(e).await.unwrap(),
+                 };
+             }
+         });
+     } else {
+         while let Some(target_instance) = target_stream.next().await {
+             error_channel.0.send(PingWriteError{
+                 target_instance,
+                 time_attempted: SystemTime::now(),
+                 error: io::ErrorKind::PermissionDenied.into(),
+             }).await.unwrap();
+         }
+     }
+         (sent_ping_channel.1, error_channel.1)
 }
 
 async fn start_icmp_listener_task() -> Result<Receiver<ReceivedIcmpPacket>, PortscanErr> {
@@ -182,7 +190,7 @@ async fn start_icmp_listener_task() -> Result<Receiver<ReceivedIcmpPacket>, Port
 }
 
 #[instrument(level = "error")]
-fn socket_open_error(_: io::Error) -> PortscanErr {
+fn socket_open_error(_e: io::Error) -> PortscanErr {
     PortscanErr::InsufficientPermission
 }
 
@@ -191,4 +199,15 @@ pub(crate) async fn skip_icmp(
     target_stream: impl Stream<Item = TargetInstance> + 'static + Send,
 ) -> Result<impl Stream<Item = (TargetInstance, Option<PingResult>)>, PortscanErr> {
     Ok(target_stream.map(|target| (target, None)))
+}
+
+
+/// We are unable to open the needed sockets.  Just start eating all incoming values and marking them in error
+fn mark_all_as_icmp_error(target_stream: impl Stream<Item = TargetInstance> + 'static + Send + Unpin) -> impl Stream<Item = (TargetInstance, Option<PingResult>)> {
+    target_stream.map(|target_instance|{
+        (target_instance,Some(PingResult{
+            ping_sent: SystemTime::now(), //TOOD: make optional
+            result_type: PingResultType::Error(io::ErrorKind::PermissionDenied.into()),
+        }))
+    })
 }
