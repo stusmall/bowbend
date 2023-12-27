@@ -2,5 +2,5 @@
 mod basic_http_probe;
 mod nginx;
 
-pub use basic_http_probe::{BasicHttpGetProbe, BasicHttpGetProbeResult};
-pub use nginx::{NginxDetectionRule, NginxDetectionRuleResult};
+pub use basic_http_probe::BasicHttpGetProbe;
+pub use nginx::NginxDetectionRule;

@@ -18,6 +18,7 @@ pub use crate::{
 };
 
 mod config;
+mod consts;
 mod err;
 mod icmp;
 mod logging;
